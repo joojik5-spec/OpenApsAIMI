@@ -4,6 +4,7 @@
 
 package app.aaps.core.ui.compose.preference
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,7 +53,7 @@ fun AdaptiveSwitchPreferenceItem(
 
     var guardMessage by remember { mutableStateOf<String?>(null) }
 
-    val summary: @Composable (() -> Unit)? = when {
+    val baseSummary: @Composable (() -> Unit)? = when {
         summaryOnResId != null && summaryOffResId != null -> {
             { Text(stringResource(if (state.value) summaryOnResId else summaryOffResId)) }
         }
@@ -62,6 +63,13 @@ fun AdaptiveSwitchPreferenceItem(
         }
 
         else                                              -> null
+    }
+    // Offline advice line (Russian only). Empty for keys without advice.
+    val summary: @Composable (() -> Unit)? = {
+        Column {
+            baseSummary?.invoke()
+            PreferenceHintLine(booleanKey.key)
+        }
     }
 
     if (changeGuard != null) {

@@ -204,6 +204,7 @@ open class OpenAPSAIMIPlugin  @Inject constructor(
     private val dynIsfTrajectoryTuning: DynIsfTrajectoryTuning,
     private val tpoOrchestrator: TpoOrchestrator,
     private val fabricPrivacy: FabricPrivacy,
+    private val offlinePreferenceAdvisor: app.aaps.plugins.aps.openAPSAIMI.advisor.OfflinePreferenceAdvisor,
 ) : PluginBase(
     PluginDescription()
         .mainType(PluginType.APS)
@@ -250,6 +251,14 @@ open class OpenAPSAIMIPlugin  @Inject constructor(
         EndogenousPhaseHysteresis.reset()
         InsulinSlopePreserveHysteresis.reset()
         migrateClassicAutodriveToV3()
+        // Offline advice for settings (Russian UI only). Recalculated every 15 minutes.
+        offlinePreferenceAdvisor.install()
+        aimiPluginIoScope.launch {
+            while (true) {
+                offlinePreferenceAdvisor.refresh()
+                kotlinx.coroutines.delay(15 * 60 * 1000L)
+            }
+        }
         ClaudeModelResolver.bind(preferences)
         preferences.registerPreferences(app.aaps.plugins.aps.openAPSAIMI.keys.AimiLongKey::class.java)
         preferences.registerPreferences(app.aaps.plugins.aps.openAPSAIMI.keys.AimiStringKey::class.java)
