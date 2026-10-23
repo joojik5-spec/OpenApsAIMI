@@ -84,4 +84,8 @@
     <string name="invalid_history_data">Обнаружены недопустимые данные истории помпы. Создайте запись о новой проблеме и предоставьте журналы.</string>
     <string name="riley_statistics">Статистика RL</string>
     <string name="clicked_refresh" comment="26 characters max for translation">Нажато обновление</string>
+    <string name="medtronic_custom_action_reset_rileylink">Сбросить RileyLink</string>
+    <string name="medtronic_pump_type_unsupported">Другая (не поддерживается)</string>
+    <string name="medtronic_pump_type_523_24a">523 (Fw 2.4A или ниже)</string>
+    <string name="medtronic_pump_type_723_24a">723 (Fw 2.4A или ниже)</string>
 </resources>

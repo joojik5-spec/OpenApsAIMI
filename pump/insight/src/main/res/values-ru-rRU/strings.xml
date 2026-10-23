@@ -51,4 +51,5 @@
     <string name="unpair">Разъединение</string>
     <string name="reset_pairing">Сбросить информацию о сопряжении?</string>
     <string name="reservoir_level">Уровень резервуара</string>
+    <string name="insightpump_shortname">Sight</string>
 </resources>

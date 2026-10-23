@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calibration_shortname">CAL</string>
+    <string name="no_calibration_name">Без калибровки</string>
+    <string name="description_no_calibration">"Переопределение калибровки не применяется. Значения сенсора используются как есть. Используйте, если сенсор уже откалиброван на заводе и точен."</string>
+    <string name="linear_calibration_name">Линейная калибровка</string>
+    <string name="description_linear_calibration">"Линейное переопределение калибровки для каждого сенсора (наклон и смещение) по вашим измерениям из пальца. Недавние измерения имеют больший вес. Применяется после начала текущей сессии сенсора; первые 2 часа пропускаются как прогрев."</string>
+    <string name="sensor_change_detected_text">Возможно, сенсор заменён в %1$s. Отметить как новый сенсор?</string>
+    <string name="sensor_change_detected_action">Отметить смену сенсора</string>
+    <string name="sensor_change_detected_ignore">Это не новый сенсор</string>
+    <string name="cal_status_no_session">Отметьте смену сенсора, чтобы включить калибровку.</string>
+    <string name="cal_status_warmup">Прогрев сенсора — калибровка активна после %1$s.</string>
+    <string name="cal_status_need_more_entries">Нужно минимум 2 измерения из пальца (сейчас %1$d).</string>
+    <string name="cal_status_unsafe_fit">Подгонка вне безопасного диапазона — калибровка не применена.</string>
+    <string name="cal_status_applied">Калибровка применена.</string>
+    <string name="cal_status_applied_offset_only">Применено только смещение — диапазон сенсора слишком узок для наклона.</string>
+    <string name="cal_status_applied_slope_clamped">Калибровка применена — наклон ограничен безопасным диапазоном. Добавьте больше измерений, чтобы снять ограничение.</string>
+    <string name="cal_slope_offset">Наклон %1$.2f, коррекция в середине диапазона %2$s</string>
+    <string name="cal_session_started">Сессия начата: %1$s</string>
+    <string name="cal_mark_sensor_change_now">Отметить смену сенсора</string>
+    <string name="cal_add_calibration">Добавить калибровку</string>
+    <string name="cal_entries_header">Измерения из пальца (%1$d)</string>
+    <string name="cal_no_entries">Измерений из пальца пока нет.</string>
+    <string name="cal_entry_pair">Палец %1$s → сенсор %2$s (Δ %3$s)</string>
+    <string name="cal_remove_entry_title">Удалить запись?</string>
+    <string name="cal_remove_entry_message">Запись будет аннулирована, подгонка пересчитается.</string>
+    <string name="cal_chart_entry_readout">Запись %1$d/%2$d · %3$s · сенсор %4$s → BG %5$s</string>
+    <string name="cal_notify_need_more_entries">Добавьте калибровку по измерению из пальца, чтобы включить коррекцию сенсора. Для лучшего результата: дождитесь окончания прогрева, калибруйте при стабильной глюкозе (без быстрого роста или падения) и используйте свежее, аккуратное измерение глюкометром. Нужно минимум 2 калибровки, лучше при разных уровнях глюкозы.</string>
+    <string name="cal_notify_unsafe_fit">Последние калибровки дали противоречивый результат и не применены — сенсор показывает нескорректированные значения. Добавьте новую калибровку при стабильной глюкозе; перепроверьте показание глюкометра: одно неточное измерение может исказить результат.</string>
+    <string name="cal_notify_narrow_range">Все ваши калибровки близки по значению глюкозы, поэтому применима только базовая коррекция. Добавьте калибровку, когда глюкоза заметно выше или ниже обычного: калибровки при разных уровнях делают коррекцию точной во всём диапазоне, а не только около одного значения.</string>
+    <string name="cal_notify_stale">С последней калибровки прошло много времени. Сенсоры могут дрейфовать за время ношения, поэтому свежая калибровка сейчас — при стабильной глюкозе — сохранит точность коррекции до конца сессии.</string>
+</resources>

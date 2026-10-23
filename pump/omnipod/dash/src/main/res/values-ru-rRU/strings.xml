@@ -33,4 +33,10 @@
     <string name="cancel_temp_basal_result_is_uncertain">Результат отмены временного базала неясен</string>
     <string name="unconfirmed_resumedelivery_command_please_refresh_pod_status">Неподтвержденная команда возобновления болюса. Обновите статус pod</string>
     <string name="cancelling_temp_basal_might_have_failed">Установка врем базала могла иметь сбой. Если врем базал запущен ранее, он возможно отменен. Вручную обновите статус Pod из вкладки Omnipod.</string>
+    <string name="omnipod_dash_failed_to_send">Не удалось отправить команду</string>
+    <string name="omnipod_dash_command_not_sent">Команда не отправлена</string>
+    <string name="omnipod_dash_command_not_received_by_the_pod">Команда не получена подом</string>
+    <string name="omnipod_dash_unknown">Неизвестное состояние команды</string>
+    <string name="omnipod_common_history_tbr_value">%1$.2f U/h, %2$d мин</string>
+    <string name="omnipod_common_history_total_delivered">Всего подано: %1$.2f U</string>
 </resources>

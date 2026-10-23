@@ -100,4 +100,20 @@
     <string name="num1pin">1: (12 цифр)</string>
     <string name="num2pin">2: (8 цифр)</string>
     <string name="basal_bolus_step">Шаг Базала/болюса</string>
+    <string name="danar_disablebolusblock">На помпе включена блокировка болюса. Пока она активна, AAPS не может подавать инсулин. Отключите блокировку болюса в настройках помпы.</string>
+    <string name="largetimedifftitle">Большая разница во времени</string>
+    <string name="connecting_to_pump">Подключение к помпе…</string>
+    <string name="pairing_successful">Сопряжение выполнено!</string>
+    <string name="pairing_successful_message">Помпа подключена и готова к работе.</string>
+    <string name="cancel_pairing_title">Отменить сопряжение?</string>
+    <string name="cancel_pairing_message">Процесс сопряжения будет прерван.</string>
+    <string name="done">Готово</string>
+    <string name="open_bluetooth_settings">Открыть настройки Bluetooth</string>
+    <string name="enter_pump_password">Введите пароль помпы</string>
+    <string name="select_paired_device">Выберите сопряжённое устройство</string>
+    <string name="no_paired_devices">Сопряжённые устройства Dana не найдены. Сначала выполните сопряжение помпы в настройках Bluetooth Android.</string>
+    <string name="password_hint">4-значный пароль (0–9999)</string>
+    <string name="connecting_verifying">Подключение и проверка пароля…</string>
+    <string name="password_ok">Пароль успешно проверен!</string>
+    <string name="password_wrong">Неверный пароль. Вернитесь и исправьте его.</string>
 </resources>

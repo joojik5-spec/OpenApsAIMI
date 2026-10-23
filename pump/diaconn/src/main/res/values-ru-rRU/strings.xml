@@ -120,4 +120,20 @@
     <string name="diaconn_g8_errorcode_36">Остановка временного базала отклоняется при неработающем tempbasal</string>
     <string name="diaconn_g8_cloudsend_summary">Отправить лог помпы в Diaconn Cloud.</string>
     <string name="diaconn_g8_cloudsend_title">Синхронизация с Diaconn Cloud</string>
+    <string name="resetpairing">Сбросить данные сопряжения?</string>
+    <string name="largetimedifftitle">Большая разница во времени</string>
+    <string name="waitingforbolusend">Ожидание предполагаемого окончания болюса</string>
+    <string name="gettingbolusstatus">Получение статуса болюса</string>
+    <string name="diaconn_g8_pump_shortname">Diaconn G8</string>
+    <string name="processinghistory">Обработка события</string>
+    <string name="bolus_speed_1">1 U/min</string>
+    <string name="bolus_speed_2">2 U/min</string>
+    <string name="bolus_speed_3">3 U/min</string>
+    <string name="bolus_speed_4">4 U/min</string>
+    <string name="bolus_speed_5">5 U/min</string>
+    <string name="bolus_speed_6">6 U/min</string>
+    <string name="bolus_speed_7">7 U/min</string>
+    <string name="bolus_speed_8">8 U/min</string>
+    <string name="diaconn_pairing_successful">Сопряжение выполнено!</string>
+    <string name="diaconn_pairing_successful_message">Помпа подключена и готова к работе.</string>
 </resources>

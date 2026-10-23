@@ -117,4 +117,43 @@
     <string name="off">ВЫКЛ</string>
     <!--    Map Picker (OpenStreetMap)-->
     <!-- Permission rationales -->
+    <string name="automation_enabled">Включено</string>
+    <string name="automation_read_only">Только чтение</string>
+    <string name="automation_new_rule">Новое правило</string>
+    <string name="automation_empty_desc">Создайте правило для автоматизации действий по триггерам.</string>
+    <string name="automation_edit_rule">Изменить правило</string>
+    <string name="automation_discard_title">Отменить изменения?</string>
+    <string name="automation_discard_message">Правило не заполнено и не может быть сохранено. Отменить изменения?</string>
+    <string name="automation_discard_confirm">Отменить</string>
+    <string name="automation_category_time">Время и расписание</string>
+    <string name="automation_category_glucose">Глюкоза и лечение</string>
+    <string name="automation_category_device">Состояние устройства</string>
+    <string name="automation_category_sensors">Сенсоры и связь</string>
+    <string name="automation_category_other">Прочее</string>
+    <string name="automation_choose_trigger">Добавить триггер</string>
+    <string name="automation_add_group">Группа</string>
+    <string name="automation_choose_action">Добавить действие</string>
+    <string name="automation_category_targets">Цели</string>
+    <string name="automation_category_profile">Профиль</string>
+    <string name="automation_category_loop">Цикл и инсулин</string>
+    <string name="automation_category_alerts">Тревоги</string>
+    <string name="automation_category_system">Система</string>
+    <string name="automation_category_scenes">Сцены</string>
+    <string name="action_run_scene">Запустить сцену</string>
+    <string name="action_run_scene_short">Запустить сцену: %1$s</string>
+    <string name="action_enable_scene">Включить сцену</string>
+    <string name="action_enable_scene_short">Включить сцену: %1$s</string>
+    <string name="action_disable_scene">Отключить сцену</string>
+    <string name="action_disable_scene_short">Отключить сцену: %1$s</string>
+    <string name="action_scene_label">Сцена</string>
+    <string name="trigger_scene_active">Сцена</string>
+    <string name="trigger_scene_active_compared">Сцена %1$s</string>
+    <string name="action_scene_not_found">Сцена не найдена</string>
+    <string name="action_scene_disabled">Сцена отключена</string>
+    <string name="pick_from_map">Выбрать на карте</string>
+    <string name="tap_to_select_location">Нажмите на карту, чтобы выбрать место</string>
+    <string name="selected_coords">Выбрано: %1$.6f, %2$.6f</string>
+    <string name="permission_location_title">Местоположение</string>
+    <string name="permission_location_description">Нужно для триггеров автоматизации по местоположению и определения сети Wi-Fi</string>
+    <string name="permission_background_location_description">Нужно, чтобы триггеры автоматизации работали, когда приложение в фоне</string>
 </resources>

@@ -8,4 +8,5 @@
     <string name="description_sensitivity_weighted_average">Чувствительность рассчитывается как средневзвешенное от отклонений (deviations). Более поздние отклонения имеют больший вес. Минимальное усвоение углеводов рассчитывается на основе макс времени усвоения углеводов в настройках. Этот алгоритм быстрее всего отслеживает изменения чувствительности.</string>
     <string name="uam_disabled_oref1_not_selected">Незапланированный прием пищи UAM отключен, поскольку он основывается на модуле чувствительности из Oref1</string>
     <string name="absorption_settings_title">Настройки усваиваемости</string>
+    <string name="sensitivity_plugin_shortname">SENS</string>
 </resources>

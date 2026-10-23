@@ -62,4 +62,31 @@
     <!-- Google Drive error messages (used by GoogleDriveManager) -->
     <!-- Provider-agnostic cloud storage strings -->
     <!-- Authorization status strings -->
+    <string name="permission">Разрешение</string>
+    <string name="need_system_window_permission">Приложению нужно разрешение на отображение поверх других окон для уведомлений</string>
+    <string name="need_location_permission">Приложению нужно разрешение на местоположение для поиска Bluetooth и определения Wi-Fi</string>
+    <string name="need_background_location_permission">Приложению нужно разрешение на местоположение в фоне для автоматизаций</string>
+    <string name="need_storage_permission">Приложению нужно разрешение на хранилище для сохранения логов и экспорта настроек (только старые версии Android)</string>
+    <string name="need_whitelisting">%1$s нужно исключить из оптимизации батареи для корректной работы</string>
+    <string name="error_asking_for_permissions">Ошибка запроса разрешений</string>
+    <string name="import_setting">Импорт настроек</string>
+    <string name="aaps_directory">Папка AAPS</string>
+    <string name="select_aaps_directory">Выберите папку AAPS для экспорта, конфигураций и связанных данных.</string>
+    <string name="askforpermission">Запросить разрешение</string>
+    <string name="status_label">Статус:</string>
+    <string name="setupwizard_client_control_title">Управление клиентами</string>
+    <string name="setupwizard_client_control_info">Привяжите клиентские устройства, чтобы они могли отправлять подписанные команды на этот главный телефон через Nightscout. Это новый рекомендуемый способ удалённого управления AAPS.</string>
+    <string name="setupwizard_ns_receive_info">Приём лечения и данных напрямую из Nightscout (менее безопасный способ) теперь по умолчанию отключён. Открывайте настройки ниже, только если он всё ещё нужен. Необходим, если вы вводите данные через NS или сторонние приложения.</string>
+    <string name="setupwizard_open_ns_receive_settings">Приём данных Nightscout</string>
+    <string name="setupwizard_pair_with_master_info">Привяжите этот клиент к главному AAPS, чтобы отправлять команды по защищённому каналу.</string>
+    <string name="setupwizard_pairing_ws_warning">Для привязки нужно соединение Nightscout WebSocket. Вернитесь на предыдущий шаг и сначала включите его.</string>
+    <string name="setupwizard_pairing_status_master">Привязанных клиентов: %1$d</string>
+    <string name="setupwizard_pairing_status_master_none">Клиенты ещё не привязаны</string>
+    <string name="setupwizard_pairing_status_client_paired">Привязан к главному</string>
+    <string name="setupwizard_pairing_status_client_not_paired">Ещё не привязан</string>
+    <string name="authorization_status">Статус авторизации</string>
+    <string name="google_drive_authorized">Google Drive авторизован</string>
+    <string name="google_drive_reauth_required">Очистите настройки и заново авторизуйте Google Drive</string>
+    <string name="aimi_backup_to_cloud">Резервная копия AIMI в облако</string>
+    <string name="aimi_data_export_option">Данные AIMI (модели, наборы данных)</string>
 </resources>

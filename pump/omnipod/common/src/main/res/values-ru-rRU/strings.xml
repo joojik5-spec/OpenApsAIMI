@@ -170,4 +170,15 @@
     <!-- Omnipod - History -->
     <string name="omnipod_common_history_bolus_value">%1$.2f ед</string>
     <string name="omnipod_common_history_total_delivered">Всего подано: %1$.2f ед</string>
+    <string name="omnipod_common_preferences_notification_delivery_suspended_sound_enabled">Звук уведомления о приостановке подачи включён</string>
+    <string name="omnipod_dash_use_bonding">Привязка BT-устройства на Android 15</string>
+    <string name="omnipod_common_cmd_set_tbr">Установить TBR</string>
+    <string name="omnipod_common_cmd_cancel_tbr_by_driver">Отменить TBR</string>
+    <string name="omnipod_common_cmd_set_fake_suspended_tbr">Установить фиктивный приостановленный TBR</string>
+    <string name="omnipod_common_cmd_cancel_fake_suspended_tbr">Отменить фиктивный приостановленный TBR</string>
+    <string name="omnipod_common_cmd_split_tbr">Разделить TBR</string>
+    <string name="omnipod_common_disable_suspend_alerts">Отключить оповещения о приостановке</string>
+    <string name="omnipod_common_alert_finish_pairing_reminder">Напоминание о завершении сопряжения</string>
+    <string name="omnipod_common_alert_finish_setup_reminder_reminder">Напоминание о завершении настройки</string>
+    <string name="omnipod_common_overview_pod_hard_end_date">Жёсткое окончание пода</string>
 </resources>

@@ -124,4 +124,34 @@
     <string name="equil_pump_updated">Помпа обновлена</string>
     <string name="equil_replace_reservoir">Резервуар пуст. Замените резервуар</string>
     <string name="equil_removed_anyway">Ошибка при выполнении команды Разъединить. Помпа будет удалена в любом случае. Пароль, установленный при сопряжении, не удаляется из помпы.</string>
+    <string name="equil_name">Equil</string>
+    <string name="equil_title_assemble">Сборка помпы</string>
+    <string name="equil_title_serial">Сопряжение устройства</string>
+    <string name="equil_basal_exceeds_max">Базал профиля %1$s U/h превышает максимальный базал помпы %2$s U/h. Увеличьте максимальный базал и переподключите помпу.</string>
+    <string name="equil_low_battery">Низкий заряд батареи</string>
+    <string name="equil_low_insulin">В резервуаре недостаточно инсулина</string>
+    <string name="equil_common_moments_ago">Только что</string>
+    <string name="equil_common_less_than_a_minute_ago">Менее минуты назад</string>
+    <string name="equil_common_time_ago">%1$s назад</string>
+    <string name="equil_common_composite_time">%1$s и %2$s</string>
+    <plurals name="equil_common_minutes">
+        <item quantity="one">%1$d минута</item>
+        <item quantity="few">%1$d минуты</item>
+        <item quantity="many">%1$d минут</item>
+        <item quantity="other">%1$d минуты</item>
+    </plurals>
+    <plurals name="equil_common_hours">
+        <item quantity="one">%1$d час</item>
+        <item quantity="few">%1$d часа</item>
+        <item quantity="many">%1$d часов</item>
+        <item quantity="other">%1$d часа</item>
+    </plurals>
+    <plurals name="equil_common_days">
+        <item quantity="one">%1$d день</item>
+        <item quantity="few">%1$d дня</item>
+        <item quantity="many">%1$d дней</item>
+        <item quantity="other">%1$d дня</item>
+    </plurals>
+    <string name="equil_password_tips">При желании задайте пароль для сопряжения с помпой Equil v5.3. Этот пароль понадобится и для отмены сопряжения, поэтому обязательно запомните его. Правило: 4 символа из набора ABCDEF0123456789.</string>
+    <string name="equil_pair_password_title">Введите пароль для %1$s</string>
 </resources>

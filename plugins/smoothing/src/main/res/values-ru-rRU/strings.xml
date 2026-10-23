@@ -9,4 +9,6 @@
     <string name="description_no_smoothing">"Используйте, если ваши данные уже отфильтрованы, например поступают из BYODA G6."</string>
     <string name="UKF_name">Фильтр Калмана</string>
     <string name="description_UKF">"Продвинутый алгоритм с автоматическим выравниванием шума и сглаживанием Рауша - Тунга - Штрибеля (RGS)."</string>
+    <string name="adaptive_smoothing_name">Адаптивное сглаживание</string>
+    <string name="description_adaptive_smoothing">"Контекстное адаптивное сглаживание: минимальная задержка при быстром росте, жёсткая фильтрация шумных данных, безопасность при низких значениях"</string>
 </resources>

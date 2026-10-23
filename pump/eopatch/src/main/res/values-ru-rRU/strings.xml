@@ -79,4 +79,20 @@
     <string name="string_resumed_insulin_delivery_message">Подача инсулина возобновлена.</string>
     <string name="string_temp_basal_remained_hhmm">оставшееся время: %1$s:%2$s</string>
     <string name="string_resume_failed">Возобновление не состоялось.</string>
+    <string name="eopatch_shortname">EOP2</string>
+    <string name="eopatch_not_activated">Не активирован</string>
+    <string name="no_profile_selected_try_again">Профиль не выбран. Выберите профиль и повторите попытку.</string>
+    <string name="patch_wake_up_pairing_info">При сопряжении появятся два системных окна Android. Для завершения сопряжения Bluetooth подтвердите оба.</string>
+    <string name="patch_remove_needle_cap_desc_2">Если игла выступает, нажмите \'Утилизировать\'.</string>
+    <string name="patch_remove_needle_cap_desc_3">Если патч мокрый или грязный либо его клейкая лента загнута, нажмите \'Утилизировать\'.</string>
+    <string name="patch_safety_check_desc_2">Для безопасного использования не снимайте рычаг иглы до завершения проверки безопасности!</string>
+    <string name="patch_safety_check_failed_desc">Проверка безопасности не пройдена. Повторите попытку.</string>
+    <string name="string_resume_insulin_delivery_message">Окончание приостановки инсулина.\nНажмите \'Подтвердить\', чтобы возобновить подачу инсулина.\n\nПодача инсулина не возобновится, пока вы не нажмёте \'Подтвердить\'.\nЕсли не нажать \'Подтвердить\', может развиться гипергликемия.</string>
+    <string name="string_pause_failed">Не удалось приостановить.</string>
+    <string name="wizard_exit_activation_warning">Выйти из мастера активации? Патч может остаться в незавершённом состоянии, и потребуется новый патч.</string>
+    <string name="wizard_exit_deactivation_warning">Выйти из мастера деактивации? Патч может остаться активным и продолжить подачу инсулина.</string>
+    <string name="patch_force_reset">Принудительный сброс</string>
+    <string name="patch_force_reset_confirm">Состояние патча будет очищено локально без отправки команд на патч. Используйте, только если обычная деактивация не удалась. Патч продолжит подачу, пока не разрядится батарея или он не будет выключен вручную.</string>
+    <string name="permission_exact_alarm_title">Точные тревоги</string>
+    <string name="permission_exact_alarm_description">Приложению нужно разрешение на планирование точных тревог для управления патчем</string>
 </resources>

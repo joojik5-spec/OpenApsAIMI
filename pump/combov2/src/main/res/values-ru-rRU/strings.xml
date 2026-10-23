@@ -117,4 +117,5 @@
     <string name="combov2_cannot_pair_driver_not_initialized_explanation">Невозможно выполнить сопряжение, т. к. драйвер не инициализирован. Обычно это происходит, потому что не были предоставлены необходимые разрешения Bluetooth. Вернитесь назад, предоставьте разрешения Bluetooth, а затем попробуйте еще раз.</string>
     <string name="combov2_bluetooth_disabled">Невозможно запустить драйвер - Bluetooth отключен</string>
     <string name="combov2_bluetooth_not_supported">Драйвер не может запуститься - это устройство не поддерживает Bluetooth</string>
+    <string name="combov2_unaccounted_bolus_detected_cancelling_bolus">Обнаружены неучтённые подачи болюса. Болюс отменяется в целях безопасности.</string>
 </resources>

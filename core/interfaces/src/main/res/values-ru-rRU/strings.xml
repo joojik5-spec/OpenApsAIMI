@@ -121,4 +121,11 @@
     <string name="u200">200 ед</string>
     <string name="u300">300 ед</string>
     <string name="u500">500 ед</string>
+    <string name="pref_show_complication1">Показывать компликацию 1</string>
+    <string name="pref_show_complication2">Показывать компликацию 2</string>
+    <string name="pref_show_complication3">Показывать компликацию 3</string>
+    <string name="pref_show_complication4">Показывать компликацию 4</string>
+    <string name="pref_show_complication5">Показывать компликацию 5</string>
+    <string name="inhaled_afrezza">Afrezza (ингаляционный)</string>
+    <string name="inhaled_afrezza_comment">Ингаляционный инсулин Technosphere — пик ~40 мин, длительность ~2,5 ч</string>
 </resources>
