@@ -116,6 +116,7 @@ fun AdaptiveDoublePreferenceItem(
                     color = theme.summaryColor.let { if (visibility.enabled) it else it.copy(alpha = theme.disabledOpacity) }
                 )
             }
+            PreferenceNumberHintLine(doubleKey.key, value, doubleKey.min, doubleKey.max, false)
             PreferenceSliderWithButtons(
                 value = value,
                 onValueChange = { newValue ->
@@ -149,7 +150,12 @@ fun AdaptiveDoublePreferenceItem(
                 text.toDoubleOrNull()?.coerceIn(doubleKey.min, doubleKey.max)
             },
             enabled = visibility.enabled,
-            summary = { Text(summaryText) }
+            summary = {
+                Column {
+                    Text(summaryText)
+                    PreferenceNumberHintLine(doubleKey.key, value, doubleKey.min, doubleKey.max, false)
+                }
+            }
         )
     }
 }

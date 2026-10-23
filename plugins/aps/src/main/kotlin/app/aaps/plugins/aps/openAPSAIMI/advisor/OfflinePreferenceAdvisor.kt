@@ -5,6 +5,8 @@ import app.aaps.core.interfaces.db.PersistenceLayer
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.logging.LTag
 import app.aaps.core.keys.BooleanKey
+import app.aaps.core.keys.DoubleKey
+import app.aaps.core.keys.IntKey
 import app.aaps.core.ui.compose.preference.PreferenceHint
 import app.aaps.core.ui.compose.preference.PreferenceHintLevel
 import app.aaps.core.ui.compose.preference.PreferenceHints
@@ -125,9 +127,12 @@ class OfflinePreferenceAdvisor @Inject constructor(
 
     @Volatile private var hints: Map<String, PreferenceHint> = emptyMap()
     @Volatile private var lastRefreshMs = 0L
+    @Volatile private var stats: GlucoseProfileStats? = null
+    private val numberKinds: Map<String, NumberKind> by lazy { buildNumberKinds() }
 
     fun install() {
         PreferenceHints.provider = { key -> hints[key] }
+        PreferenceHints.numberProvider = { key, value, min, max, isInt -> adviseNumber(key, value, min, max, isInt) }
     }
 
     /** Reads the last [DAYS] days and rebuilds all advice. */
@@ -135,7 +140,8 @@ class OfflinePreferenceAdvisor @Inject constructor(
         try {
             val now = System.currentTimeMillis()
             val readings = persistenceLayer.getBgReadingsDataFromTimeToTime(now - DAYS * DAY_MS, now, ascending = true)
-            hints = buildHints(GlucoseProfileStats.from(readings))
+            stats = GlucoseProfileStats.from(readings)
+            hints = buildHints(stats)
             lastRefreshMs = now
             PreferenceHints.bump()
         } catch (e: Exception) {
@@ -210,6 +216,65 @@ class OfflinePreferenceAdvisor @Inject constructor(
         }
     }
 
+    private enum class NumberKind { MORE_INSULIN, MORE_INSULIN_MULTIPLIER, INTERVAL, OTHER }
+
+    private fun buildNumberKinds(): Map<String, NumberKind> {
+        val map = HashMap<String, NumberKind>()
+        for (k in DoubleKey.entries) {
+            val n = k.name
+            if (!(n.startsWith("OApsAIMI") || n.startsWith("Aimi")) || n.contains("State") || n.startsWith("OApsAIMILast")) continue
+            map[k.key] = when (n) {
+                in INSULIN_MULTIPLIERS -> NumberKind.MORE_INSULIN_MULTIPLIER
+                in INSULIN_AMOUNTS -> NumberKind.MORE_INSULIN
+                else -> NumberKind.OTHER
+            }
+        }
+        for (k in IntKey.entries) {
+            val n = k.name
+            if (!(n.startsWith("OApsAIMI") || n.startsWith("Aimi"))) continue
+            map[k.key] = if (n.endsWith("interval")) NumberKind.INTERVAL else NumberKind.OTHER
+        }
+        return map
+    }
+
+    /** Says which value is better now for a number setting, based on the same glucose stats. */
+    internal fun adviseNumber(key: String, value: Double, min: Double, max: Double, isInt: Boolean): PreferenceHint? {
+        val kind = numberKinds[key] ?: return null
+        val s = stats ?: return PreferenceHint(PreferenceHintLevel.ENABLE, "(Лучше: пока оставить ${show(value, isInt)}, мало данных, нужно хотя бы 3 дня сахаров)")
+        val tir = s.tirPercent.roundToInt()
+        // Direction: -1 = less insulin, +1 = more insulin, 0 = keep.
+        val direction: Int
+        val reason: String
+        when {
+            s.lowPercent >= 4 -> { direction = -1; reason = "частые низкие: ${fmt(s.lowPercent)}% времени ниже 70" }
+            s.lowPercent >= 2 -> { direction = -1; reason = "низкие бывают: ${fmt(s.lowPercent)}% времени ниже 70" }
+            s.highPercent >= 30 || s.slowRecoveryPercent >= 40 ->
+                { direction = 1; reason = "сахар часто высокий: выше 180 в ${s.highPercent.roundToInt()}%, после подъёма через 2 ч всё ещё выше 180 в ${s.slowRecoveryPercent.roundToInt()}%" }
+            else -> { direction = 0; reason = "сахар в норме, в диапазоне $tir% времени" }
+        }
+        val target = when (kind) {
+            NumberKind.OTHER -> value
+            NumberKind.INTERVAL -> value - direction // more insulin = shorter pause between SMB
+            NumberKind.MORE_INSULIN -> value * (1.0 + 0.15 * direction)
+            NumberKind.MORE_INSULIN_MULTIPLIER -> 1.0 + (value - 1.0) * (1.0 + 0.3 * direction)
+        }.coerceIn(min, max)
+        val recommended = if (isInt) target.roundToInt().toDouble() else Math.round(target * 100.0) / 100.0
+        val text = when {
+            kind == NumberKind.OTHER ->
+                if (s.tirPercent >= 80) "(Лучше: оставить ${show(value, isInt)}, в диапазоне $tir% времени, менять не нужно)"
+                else "(Лучше: оставить ${show(value, isInt)}, сначала настройте лимиты SMB и интервалы, это влияет сильнее)"
+
+            recommended == value || direction == 0 ->
+                "(Лучше: оставить ${show(value, isInt)}, $reason)"
+
+            else -> "(Лучше: ${show(recommended, isInt)}, сейчас ${show(value, isInt)}: $reason)"
+        }
+        return PreferenceHint(PreferenceHintLevel.ENABLE, text)
+    }
+
+    private fun show(v: Double, isInt: Boolean) =
+        if (isInt) v.roundToInt().toString() else String.format(java.util.Locale.US, "%.2f", v).trimEnd('0').trimEnd('.')
+
     private fun fmt(v: Double) = String.format(java.util.Locale.US, "%.1f", v)
 
     private fun enable(reason: String) = PreferenceHint(PreferenceHintLevel.ENABLE, "(Включить: $reason)")
@@ -222,6 +287,16 @@ class OfflinePreferenceAdvisor @Inject constructor(
         private const val DAY_MS = 24 * 3600 * 1000L
         private const val STALE_MS = 10 * 60 * 1000L
 
+        private val INSULIN_AMOUNTS = setOf(
+            "OApsAIMIMaxSMB", "OApsAIMIHighBGMaxSMB", "OApsAIMIFCLFactor", "OApsAIMIMealFactor", "OApsAIMIBFFactor",
+            "OApsAIMILunchFactor", "OApsAIMIDinnerFactor", "OApsAIMIHCFactor", "OApsAIMISnackFactor", "OApsAIMIsleepFactor",
+            "OApsAIMIPriorityMaxIobExtraU", "OApsAIMIAnticipBudgetU", "OApsAIMIautodrivePrebolus",
+            "OApsAIMINightGrowthMaxSmbClamp", "OApsAIMINightGrowthMaxIobExtra"
+        )
+        private val INSULIN_MULTIPLIERS = setOf(
+            "OApsAIMIPriorityMaxIobFactor", "OApsAIMINightGrowthSmbMultiplier", "OApsAIMINightGrowthBasalMultiplier",
+            "OApsAIMIAdaptiveBasalMaxScaling", "OApsAIMIActivityBasalCapFactor"
+        )
         private val DIAGNOSTIC = setOf(
             "OApsAIMIIntelligenceSnapshotExport", "OApsAIMIWCycleShadow", "OApsAIMIPredictionAuthorityShadow",
             "OApsAIMIRecursiveBeliefShadow", "OApsAIMIDynIsfTrajectoryShadowOnly", "OApsAIMILoopBlackboxFileEnabled",

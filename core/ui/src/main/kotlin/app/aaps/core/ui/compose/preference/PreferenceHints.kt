@@ -22,6 +22,10 @@ object PreferenceHints {
     @Volatile
     var provider: ((String) -> PreferenceHint?)? = null
 
+    /** Advice for number settings: key, current value, min, max, is whole number. */
+    @Volatile
+    var numberProvider: ((String, Double, Double, Double, Boolean) -> PreferenceHint?)? = null
+
     /** Changes when the advice is recalculated, so screens redraw. */
     val version = mutableIntStateOf(0)
 
@@ -37,6 +41,16 @@ object PreferenceHints {
 
 private val GreenLight = Color(0xFF2E9E4F)
 private val RedLight = Color(0xFFD9534F)
+
+/** Draws the advice line for a number setting: which value is better now. */
+@Composable
+fun PreferenceNumberHintLine(key: String, value: Double, min: Double, max: Double, isInt: Boolean) {
+    @Suppress("UNUSED_VARIABLE")
+    val redrawOn = PreferenceHints.version.intValue
+    if (Locale.getDefault().language != "ru") return
+    val hint = PreferenceHints.numberProvider?.invoke(key, value, min, max, isInt) ?: return
+    Text(text = hint.text, color = GreenLight, style = MaterialTheme.typography.bodySmall)
+}
 
 /** Draws the advice line for [key] if there is one. */
 @Composable

@@ -85,6 +85,7 @@ fun AdaptiveIntPreferenceItem(
                     color = theme.summaryColor.let { if (visibility.enabled) it else it.copy(alpha = theme.disabledOpacity) }
                 )
             }
+            PreferenceNumberHintLine(intKey.key, value.toDouble(), intKey.min.toDouble(), intKey.max.toDouble(), true)
             PreferenceSliderWithButtons(
                 value = value.toDouble(),
                 onValueChange = { newValue ->
@@ -119,7 +120,12 @@ fun AdaptiveIntPreferenceItem(
                 text.toIntOrNull()?.coerceIn(intKey.min, intKey.max)
             },
             enabled = visibility.enabled,
-            summary = { Text(summaryText) }
+            summary = {
+                Column {
+                    Text(summaryText)
+                    PreferenceNumberHintLine(intKey.key, value.toDouble(), intKey.min.toDouble(), intKey.max.toDouble(), true)
+                }
+            }
         )
     }
 }
