@@ -7,6 +7,7 @@ package app.aaps.core.ui.compose.preference
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -65,7 +66,7 @@ fun AdaptiveStringPreferenceItem(
             if (result.isValid) text else null
         },
         enabled = visibility.enabled,
-        summary = when {
+        summary = withHint(stringKey.key, !isSecure, when {
             isSecure && value.isNotEmpty() -> {
                 { Text("••••••••") }
             }
@@ -85,7 +86,7 @@ fun AdaptiveStringPreferenceItem(
             }
 
             else                           -> null
-        },
+        }),
         dialogSummary = dialogSummary,
         textField = if (validator != StringValidator.NONE) {
             { textFieldValue, onValueChange, onOk ->
@@ -127,4 +128,15 @@ private fun ValidatedTextField(
         isError = errorMessage != null,
         supportingText = errorMessage?.let { { Text(it) } }
     )
+}
+
+/** Adds the offline advice line under a summary, when allowed. */
+private fun withHint(key: String, allowed: Boolean, base: (@Composable () -> Unit)?): (@Composable () -> Unit)? {
+    if (!allowed) return base
+    return {
+        Column {
+            base?.invoke()
+            PreferenceHintLine(key)
+        }
+    }
 }

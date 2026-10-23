@@ -91,6 +91,7 @@ fun AdaptiveUnitDoublePreferenceItem(
                 color = theme.summaryColor.let { if (visibility.enabled) it else it.copy(alpha = theme.disabledOpacity) }
             )
         }
+        PreferenceNumberHintLine(unitKey.key, currentValue, minDisplay, maxDisplay, false)
         PreferenceSliderWithButtons(
             value = currentValue,
             onValueChange = { newValue ->

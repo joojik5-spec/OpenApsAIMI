@@ -4,6 +4,7 @@
 
 package app.aaps.core.ui.compose.preference
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -53,7 +54,12 @@ fun AdaptiveListIntPreferenceItem(
         values = entryValues,
         title = { Text(titleText) },
         enabled = visibility.enabled,
-        summary = { Text(currentEntry) },
+        summary = {
+            Column {
+                Text(currentEntry)
+                PreferenceHintLine(intKey.key)
+            }
+        },
         dialogSummary = dialogSummary,
         valueToText = { value ->
             val index = entryValues.indexOf(value)
@@ -99,7 +105,12 @@ fun AdaptiveStringListPreferenceItem(
         values = values,
         title = { TextWithSyncBadge(titleText, stringKey) },
         enabled = visibility.enabled,
-        summary = { Text(currentEntry) },
+        summary = {
+            Column {
+                Text(currentEntry)
+                PreferenceHintLine(stringKey.key)
+            }
+        },
         dialogSummary = dialogSummary,
         valueToText = { value ->
             AnnotatedString(entries[value] ?: value)

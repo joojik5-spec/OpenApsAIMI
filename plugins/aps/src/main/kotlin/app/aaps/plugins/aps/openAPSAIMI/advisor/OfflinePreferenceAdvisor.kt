@@ -7,6 +7,8 @@ import app.aaps.core.interfaces.logging.LTag
 import app.aaps.core.keys.BooleanKey
 import app.aaps.core.keys.DoubleKey
 import app.aaps.core.keys.IntKey
+import app.aaps.core.keys.StringKey
+import app.aaps.core.keys.UnitDoubleKey
 import app.aaps.core.ui.compose.preference.PreferenceHint
 import app.aaps.core.ui.compose.preference.PreferenceHintLevel
 import app.aaps.core.ui.compose.preference.PreferenceHints
@@ -158,9 +160,64 @@ class OfflinePreferenceAdvisor @Inject constructor(
     internal fun buildHints(s: GlucoseProfileStats?): Map<String, PreferenceHint> {
         val result = HashMap<String, PreferenceHint>()
         for (key in BooleanKey.entries) {
-            result[key.key] = adviseFor(key.name, s)
+            val h = adviseFor(key.name, s)
+            result[key.key] = h.copy(text = h.text + "\n" + explainSwitch(key.name, s))
+        }
+        // Lists and text settings: one general advice line.
+        for (key in IntKey.entries) {
+            if (key.key !in result) result[key.key] = adviseChoice(key.name, s)
+        }
+        for (key in StringKey.entries) {
+            if (key.key in result || SECRET_WORDS.any { key.name.contains(it, ignoreCase = true) }) continue
+            result[key.key] = adviseChoice(key.name, s)
         }
         return result
+    }
+
+    private fun adviseChoice(name: String, s: GlucoseProfileStats?): PreferenceHint {
+        val ui = UI_PREFIXES.any { name.startsWith(it) }
+        val text = when {
+            ui -> "(Лучше: оставить текущий выбор, на сахар не влияет)"
+            s == null -> "(Лучше: оставить текущий выбор, мало данных, нужно хотя бы 3 дня сахаров)"
+            s.lowPercent >= 4 -> "(Лучше: выбирать более осторожный вариант, ниже 70 в ${fmt(s.lowPercent)}% времени)"
+            s.highPercent >= 30 -> "(Лучше: выбирать более активный вариант, выше 180 в ${s.highPercent.roundToInt()}% времени)"
+            else -> "(Лучше: оставить текущий выбор, в диапазоне ${s.tirPercent.roundToInt()}% времени)"
+        }
+        val why = when {
+            ui -> "Почему так: это настройка внешнего вида, связи или уведомлений. Она не меняет дозы инсулина, поэтому менять её по сахару незачем."
+            else -> "Почему так: у этого списка нет числа, которое можно сверить с графиком, поэтому совет общий. При частых низких (от 4% времени ниже 70) выбирайте осторожнее, при частых высоких (выше 180 от 30% времени) активнее, иначе оставьте как есть."
+        }
+        return PreferenceHint(PreferenceHintLevel.ENABLE, text + "\n" + why + " " + dataLine(s))
+    }
+
+    private fun dataLine(s: GlucoseProfileStats?): String =
+        if (s == null) "Данных пока мало (нужно хотя бы 3 дня сахаров), поэтому совет осторожный."
+        else "Ваши сахара за ${s.days.roundToInt()} дн.: в диапазоне 70–180 ${s.tirPercent.roundToInt()}%, ниже 70 ${fmt(s.lowPercent)}%, " +
+            "выше 180 ${s.highPercent.roundToInt()}%, ночью (00–06) ниже 70 ${fmt(s.nightLowPercent)}% и выше 180 ${s.nightHighPercent.roundToInt()}%, " +
+            "подъёмов после еды ${fmt(s.risesPerDay)} в сутки (в среднем +${s.avgRisePeakMgdl.roundToInt()} мг/дл), " +
+            "через 2 часа после подъёма выше 180 в ${s.slowRecoveryPercent.roundToInt()}% случаев, разброс (CV) ${s.cvPercent.roundToInt()}%."
+
+    /** Long explanation: what the setting does, why this advice, and what the other choice would cause. */
+    private fun explainSwitch(name: String, s: GlucoseProfileStats?): String {
+        val why = when {
+            !isAimi(name) -> when {
+                name in GENERAL_SPECIFIC -> "Эта настройка важна для вашей схемы: петля работает сама, без ввода углеводов и инсулина. Выбор указан выше из-за этого, а не из-за графика."
+                UI_PREFIXES.any { name.startsWith(it) } -> "Это оформление, связь или уведомления. Они не меняют дозы инсулина, поэтому на сахар не влияют, а включать их стоит лишь по удобству."
+                else -> GENERAL_WHY
+            }
+            name in DIAGNOSTIC -> "Это журнал, отладка или теневой режим: он только записывает данные и не меняет дозы инсулина. Включать нужно лишь для поиска ошибок, постоянная запись занимает память и батарею."
+            name in NEEDS_INTERNET -> "Функция отправляет данные во внешний ИИ и работает только с интернетом. Вы работаете офлайн, ответы могут задерживаться или не приходить, поэтому полагаться на них при расчёте инсулина нельзя."
+            name in NEEDS_WATCH -> "Нужны шаги, пульс или сон с часов или датчика. Без них функция получает пустой вход и ничего не меняет, а включённая зря она только расходует батарею."
+            name == "OApsAIMIMealAdvisorTrigger" -> "Эта функция просит указать еду. Вы углеводы не вводите, значит её запросы будут впустую."
+            name == "OApsAIMIUndeclaredCobEnabled" -> "Вы не вводите углеводы, поэтому петля не знает о еде. Функция оценивает съеденное по скорости роста сахара и позволяет вовремя подать SMB. Без неё реакция на еду была бы запоздалой."
+            name == "OApsAIMIpregnancy" || name in PERSONAL -> "Этот режим меняет потребность в инсулине под состояние организма (беременность, цикл, щитовидная железа и т. п.). График сам не показывает, есть ли такое состояние, поэтому включать нужно только если оно у вас есть: иначе модель будет ошибочно менять дозы."
+            name in NIGHT -> "Ночью нет еды и движения, поэтому высокие или низкие значения прямо показывают, верен ли ночной базал. Порог «Включить»: ночью выше 180 не менее 25% времени. Порог «Осторожно»: ниже 70 не менее 3% времени."
+            name in SAFETY -> "Это ограничители дозы. Они срабатывают в опасные моменты (падение сахара, большой запас активного инсулина) и почти не мешают в остальное время. «Включить»: низкие от 2% времени. «Осторожно»: выше 180 больше 35% и ниже 70 меньше 1%, тогда защита может держать дозы слишком маленькими."
+            name in LEARNING -> "Обучающиеся модули подстраиваются под ваши реакции на инсулин и еду. Им нужна история: за меньше чем неделю данных они учат шум. Поэтому до недели советую осторожность, после недели включать."
+            name in MEAL_BOOST -> "Это ускорители реакции на еду и рост сахара. Они нужны, когда после подъёма сахар долго остаётся высоким (порог: выше 180 через 2 часа в 30% подъёмов, или средний подъём 70 мг/дл и больше, или выше 180 в 25% времени). При частых низких (от 4% времени) усиление дозы опасно, поэтому тогда «Осторожно». При хорошем результате (в диапазоне 80% и больше) менять незачем."
+            else -> GENERAL_WHY
+        }
+        return "Почему так: $why ${dataLine(s)}"
     }
 
     internal fun adviseFor(name: String, s: GlucoseProfileStats?): PreferenceHint {
@@ -217,7 +274,7 @@ class OfflinePreferenceAdvisor @Inject constructor(
         }
     }
 
-    private enum class NumberKind { MORE_INSULIN, MORE_INSULIN_MULTIPLIER, INTERVAL, OTHER }
+    private enum class NumberKind { MORE_INSULIN, MORE_INSULIN_MULTIPLIER, INTERVAL, LOW_MARK, HIGH_MARK, LGS_THRESHOLD, OTHER }
 
     private fun buildNumberKinds(): Map<String, NumberKind> {
         val map = HashMap<String, NumberKind>()
@@ -228,6 +285,15 @@ class OfflinePreferenceAdvisor @Inject constructor(
             map[k.key] = when (n) {
                 in INSULIN_MULTIPLIERS -> NumberKind.MORE_INSULIN_MULTIPLIER
                 in INSULIN_AMOUNTS -> NumberKind.MORE_INSULIN
+                else -> NumberKind.OTHER
+            }
+        }
+        for (k in UnitDoubleKey.entries) {
+            numberNames[k.key] = k.name
+            map[k.key] = when (k.name) {
+                "OverviewLowMark" -> NumberKind.LOW_MARK
+                "OverviewHighMark" -> NumberKind.HIGH_MARK
+                "ApsLgsThreshold" -> NumberKind.LGS_THRESHOLD
                 else -> NumberKind.OTHER
             }
         }
@@ -245,6 +311,27 @@ class OfflinePreferenceAdvisor @Inject constructor(
         val kind = numberKinds[key] ?: return null
         val s = stats ?: return PreferenceHint(PreferenceHintLevel.ENABLE, "(Лучше: пока оставить ${show(value, isInt)}, мало данных, нужно хотя бы 3 дня сахаров)")
         val tir = s.tirPercent.roundToInt()
+        if (kind == NumberKind.LOW_MARK || kind == NumberKind.HIGH_MARK || kind == NumberKind.LGS_THRESHOLD) {
+            val mmol = max <= 60.0
+            val unit = if (mmol) "ммоль/л" else "мг/дл"
+            fun conv(mgdl: Double) = if (mmol) Math.round(mgdl / 18.0 * 10.0) / 10.0 else mgdl
+            return when (kind) {
+                NumberKind.LOW_MARK -> PreferenceHint(PreferenceHintLevel.ENABLE,
+                    "(Лучше: ${show(conv(70.0), false)} $unit, сейчас ${show(value, isInt)})\nПочему так: 70 мг/дл (3,9 ммоль/л) это общепринятая нижняя граница диапазона. Если поставить ниже, низкие значения перестанут считаться низкими в статистике, а если выше, статистика покажет много «низких», которых на деле нет. ${dataLine(s)}")
+
+                NumberKind.HIGH_MARK -> PreferenceHint(PreferenceHintLevel.ENABLE,
+                    "(Лучше: ${show(conv(180.0), false)} $unit, сейчас ${show(value, isInt)})\nПочему так: 180 мг/дл (10,0 ммоль/л) это общепринятая верхняя граница диапазона, по ней считают время в диапазоне и по ней сравнивают результаты. Другое значение сделает статистику несравнимой. ${dataLine(s)}")
+
+                else -> {
+                    val up = s.lowPercent >= 2
+                    val target = (if (up) value + (if (mmol) 0.3 else 5.0) else value).coerceIn(min, max)
+                    val shown = if (isInt) target.roundToInt().toDouble() else Math.round(target * 10.0) / 10.0
+                    PreferenceHint(PreferenceHintLevel.ENABLE,
+                        (if (up) "(Лучше: ${show(shown, isInt)} $unit вместо ${show(value, isInt)}: низкие бывают, ${fmt(s.lowPercent)}% времени ниже 70)" else "(Лучше: оставить ${show(value, isInt)} $unit, низких мало, ${fmt(s.lowPercent)}% времени)") +
+                            "\nПочему так: порог отключения подачи при низком сахаре. Чем он выше, тем раньше петля прекращает инсулин при падении, и тем меньше риск гипо, но тем чаще инсулин урезается зря. Поднимаю на 5 мг/дл (0,3 ммоль/л), если ниже 70 бывает от 2% времени; иначе оставляю. ${dataLine(s)}")
+                }
+            }
+        }
         // Direction: -1 = less insulin, +1 = more insulin, 0 = keep.
         val direction: Int
         val reason: String
@@ -256,14 +343,14 @@ class OfflinePreferenceAdvisor @Inject constructor(
             else -> { direction = 0; reason = "сахар в норме, в диапазоне $tir% времени" }
         }
         val target = when (kind) {
-            NumberKind.OTHER -> value
             NumberKind.INTERVAL -> value - direction // more insulin = shorter pause between SMB
             NumberKind.MORE_INSULIN -> value * (1.0 + 0.15 * direction)
             NumberKind.MORE_INSULIN_MULTIPLIER -> 1.0 + (value - 1.0) * (1.0 + 0.3 * direction)
+            else -> value
         }.coerceIn(min, max)
         val recommended = if (isInt) target.roundToInt().toDouble() else Math.round(target * 100.0) / 100.0
-        val text = when {
-            kind == NumberKind.OTHER && UI_PREFIXES.any { key.isNotEmpty() && numberNames[key]?.startsWith(it) == true } ->
+        val short = when {
+            kind == NumberKind.OTHER && UI_PREFIXES.any { numberNames[key]?.startsWith(it) == true } ->
                 "(Лучше: оставить ${show(value, isInt)}, на сахар не влияет)"
 
             kind == NumberKind.OTHER ->
@@ -275,7 +362,13 @@ class OfflinePreferenceAdvisor @Inject constructor(
 
             else -> "(Лучше: ${show(recommended, isInt)}, сейчас ${show(value, isInt)}: $reason)"
         }
-        return PreferenceHint(PreferenceHintLevel.ENABLE, text)
+        val why = when (kind) {
+            NumberKind.MORE_INSULIN -> "это лимит или доля инсулина. Если выше 180 держится долго, лимит слишком мал и инсулин не успевает; если низкие бывают, лимит велик. Двигаю его на 15% в нужную сторону: ниже 70 от 2% времени уменьшаю, выше 180 от 30% времени или долгое возвращение (в 40% подъёмов выше 180 через 2 часа) увеличиваю. Шаг небольшой, чтобы не получить резкое гипо или рост; после изменения смотрите 3–5 дней. Ставить сразу больше нельзя: эффект инсулина виден с задержкой, и резкий скачок даст гипо через несколько часов."
+            NumberKind.MORE_INSULIN_MULTIPLIER -> "это множитель (1,0 значит без изменений). Меняю только ту часть, что выше 1,0, на 30%, поэтому значение не уходит далеко от безопасного. Правило то же: ниже 70 от 2% времени уменьшаю, выше 180 от 30% времени увеличиваю."
+            NumberKind.INTERVAL -> "интервал это пауза между микроболюсами в минутах. Чем она короче, тем чаще SMB и быстрее реакция на рост сахара, но тем больше риск запаса инсулина. При высоких сокращаю на 1 минуту, при низких увеличиваю на 1, иначе оставляю."
+            else -> "параметр не связан напрямую с дозой, либо его эффект нельзя оценить по графику сахара. Если результат хороший (в диапазоне 80% и больше), менять его незачем, а сначала настраивают лимиты SMB и интервалы: они дают основной эффект."
+        }
+        return PreferenceHint(PreferenceHintLevel.ENABLE, short + "\nПочему так: " + why + " " + dataLine(s))
     }
 
     private fun show(v: Double, isInt: Boolean) =
@@ -323,7 +416,10 @@ class OfflinePreferenceAdvisor @Inject constructor(
         val highLong = s.highPercent >= 30 && s.lowPercent < 2
         val lines = ArrayList<String>()
         when (section) {
-            "ic" -> lines += "(Не нужно менять: вы не вводите углеводы, на вашу петлю не влияет)"
+            "ic" -> {
+                lines += "(Не нужно менять: вы не вводите углеводы, на вашу петлю не влияет)"
+                lines += "Почему так: IC (углеводный коэффициент) нужен только для расчёта болюса на введённые углеводы. Вы углеводы не вводите, еду петля находит по росту сахара, значит IC не участвует в дозах. ${dataLine(s)}"
+            }
             "basal" -> {
                 val total = dailyTotal(values, times)
                 when {
@@ -331,6 +427,7 @@ class OfflinePreferenceAdvisor @Inject constructor(
                     highLong -> lines += "(Лучше: около ${show(total * 1.1, false)} ЕД в сутки вместо ${show(total, false)}, это на 10% больше: выше 180 в ${s.highPercent.roundToInt()}% времени)"
                     else -> lines += "(Лучше: оставить ${show(total, false)} ЕД в сутки, сахар в норме, в диапазоне ${s.tirPercent.roundToInt()}% времени)"
                 }
+                lines += "Почему так: базал это фоновая доза инсулина. Если ниже 70 бывает чаще 2% времени, фон завышен; если выше 180 больше 30% времени при редких низких, фон занижен. Шаг 10% безопасный: эффект базала виден через несколько часов, а резкий сдвиг даёт гипо. Менять лучше один раз и смотреть 3–5 дней. ${dataLine(s)}"
                 if (s.nightLowPercent >= 3) lines += "(Ночью 00:00–06:00 базал лучше снизить на 10–15%: ночью ниже 70 в ${fmt(s.nightLowPercent)}% времени)"
                 else if (s.nightHighPercent >= 25 && s.nightLowPercent < 2) lines += "(Ночью 00:00–06:00 базал лучше поднять на 10%: ночью выше 180 в ${s.nightHighPercent.roundToInt()}% времени)"
             }
@@ -342,6 +439,7 @@ class OfflinePreferenceAdvisor @Inject constructor(
                     else -> lines += "(Лучше: оставить ${show(avg, false)}, сахар в норме, в диапазоне ${s.tirPercent.roundToInt()}% времени)"
                 }
                 lines += "(AIMI меняет ISF динамически, в профиле держите базовое значение)"
+                lines += "Почему так: ISF это на сколько 1 ЕД снижает сахар. Чем он больше, тем слабее действует инсулин в расчётах. Низкие значит инсулин действует сильнее, чем в профиле, и ISF надо повысить; долго высокие значит слабее, и ISF надо понизить. Шаг 10% безопасный. ${dataLine(s)}"
             }
             "target" -> {
                 val avg = values.average()
@@ -351,6 +449,7 @@ class OfflinePreferenceAdvisor @Inject constructor(
                     highLong -> lines += "(Лучше: цель около ${show(avg - step, false)} вместо ${show(avg, false)}: выше 180 в ${s.highPercent.roundToInt()}% времени)"
                     else -> lines += "(Лучше: оставить ${show(avg, false)}, сахар в норме, в диапазоне ${s.tirPercent.roundToInt()}% времени)"
                 }
+                lines += "Почему так: целевой сахар это уровень, к которому петля тянет сахар. Выше цель значит осторожнее (меньше риск низких), ниже цель значит активнее. Низкие от 2% времени: поднимаю цель на 10 мг/дл (0,5 ммоль/л); выше 180 больше 30% при редких низких: снижаю. ${dataLine(s)}"
             }
         }
         return lines
@@ -388,6 +487,15 @@ class OfflinePreferenceAdvisor @Inject constructor(
         private val INSULIN_MULTIPLIERS = setOf(
             "OApsAIMIPriorityMaxIobFactor", "OApsAIMINightGrowthSmbMultiplier", "OApsAIMINightGrowthBasalMultiplier",
             "OApsAIMIAdaptiveBasalMaxScaling", "OApsAIMIActivityBasalCapFactor", "ApsMaxDailyMultiplier", "ApsMaxCurrentBasalMultiplier"
+        )
+        private val SECRET_WORDS = listOf("password", "pin", "secret", "token", "apikey", "api_key", "url", "uri", "email", "phone", "user", "name")
+        private const val GENERAL_WHY = "Общая настройка: при частых низких (от 4% времени ниже 70) её нельзя усиливать, потому что лишний инсулин только добавит гипо. При результате в диапазоне 80% и выше менять не нужно. При выше 180 от 30% времени стоит попробовать, потому что инсулина явно не хватает."
+        private val GENERAL_SPECIFIC = setOf(
+            "ApsUseSmb", "ApsUseSmbAlways", "ApsUseSmbWithCob", "ApsUseSmbAfterCarbs", "ApsUseSmbWithLowTt", "ApsUseSmbWithHighTt",
+            "ApsUseUam", "ApsUseAutosens", "ApsUseDynamicSensitivity", "ApsDynIsfAdjustSensitivity", "AutotuneAutoSwitchProfile",
+            "AlertHypo", "AlertRapidFall", "AlertMissedBgReading", "AlertPumpUnreachable", "AlertHyper", "AlertCarbsRequired",
+            "ApsAlwaysUseShortDeltas", "NsClientUploadData", "SmsAllowRemoteCommands", "PumpBtWatchdog", "OverviewUseBolusAdvisor",
+            "OverviewUseBolusReminder", "OverviewUseSuperBolus"
         )
         private val UI_PREFIXES = listOf(
             "General", "Overview", "Wear", "Xdrip", "Maintenance", "SiteRotation", "Eversense", "OpenHumans",
