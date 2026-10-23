@@ -128,10 +128,12 @@ class OfflinePreferenceAdvisor @Inject constructor(
     @Volatile private var hints: Map<String, PreferenceHint> = emptyMap()
     @Volatile private var lastRefreshMs = 0L
     @Volatile private var stats: GlucoseProfileStats? = null
+    private val numberNames = HashMap<String, String>()
     private val numberKinds: Map<String, NumberKind> by lazy { buildNumberKinds() }
 
     fun install() {
         PreferenceHints.provider = { key -> hints[key] }
+        PreferenceHints.profileProvider = { section, values, times, mgdl -> adviseProfile(section, values, times, mgdl) }
         PreferenceHints.numberProvider = { key, value, min, max, isInt -> adviseNumber(key, value, min, max, isInt) }
     }
 
@@ -156,14 +158,13 @@ class OfflinePreferenceAdvisor @Inject constructor(
     internal fun buildHints(s: GlucoseProfileStats?): Map<String, PreferenceHint> {
         val result = HashMap<String, PreferenceHint>()
         for (key in BooleanKey.entries) {
-            val name = key.name
-            if (!(name.startsWith("OApsAIMI") || name.startsWith("Aimi"))) continue
-            result[key.key] = adviseFor(name, s)
+            result[key.key] = adviseFor(key.name, s)
         }
         return result
     }
 
     internal fun adviseFor(name: String, s: GlucoseProfileStats?): PreferenceHint {
+        if (!isAimi(name)) return generalAdvice(name, s)
         // Groups that do not depend on glucose.
         when {
             name in DIAGNOSTIC -> return skip("служебная функция, на сахар не влияет")
@@ -222,7 +223,8 @@ class OfflinePreferenceAdvisor @Inject constructor(
         val map = HashMap<String, NumberKind>()
         for (k in DoubleKey.entries) {
             val n = k.name
-            if (!(n.startsWith("OApsAIMI") || n.startsWith("Aimi")) || n.contains("State") || n.startsWith("OApsAIMILast")) continue
+            if (n.contains("State") || n.startsWith("OApsAIMILast")) continue
+            numberNames[k.key] = n
             map[k.key] = when (n) {
                 in INSULIN_MULTIPLIERS -> NumberKind.MORE_INSULIN_MULTIPLIER
                 in INSULIN_AMOUNTS -> NumberKind.MORE_INSULIN
@@ -231,8 +233,9 @@ class OfflinePreferenceAdvisor @Inject constructor(
         }
         for (k in IntKey.entries) {
             val n = k.name
-            if (!(n.startsWith("OApsAIMI") || n.startsWith("Aimi"))) continue
-            map[k.key] = if (n.endsWith("interval")) NumberKind.INTERVAL else NumberKind.OTHER
+            numberNames[k.key] = n
+            map[k.key] = if (n.endsWith("interval") || n == "ApsMaxSmbFrequency") NumberKind.INTERVAL
+            else if (n in INSULIN_AMOUNTS) NumberKind.MORE_INSULIN else NumberKind.OTHER
         }
         return map
     }
@@ -260,6 +263,9 @@ class OfflinePreferenceAdvisor @Inject constructor(
         }.coerceIn(min, max)
         val recommended = if (isInt) target.roundToInt().toDouble() else Math.round(target * 100.0) / 100.0
         val text = when {
+            kind == NumberKind.OTHER && UI_PREFIXES.any { key.isNotEmpty() && numberNames[key]?.startsWith(it) == true } ->
+                "(Лучше: оставить ${show(value, isInt)}, на сахар не влияет)"
+
             kind == NumberKind.OTHER ->
                 if (s.tirPercent >= 80) "(Лучше: оставить ${show(value, isInt)}, в диапазоне $tir% времени, менять не нужно)"
                 else "(Лучше: оставить ${show(value, isInt)}, сначала настройте лимиты SMB и интервалы, это влияет сильнее)"
@@ -274,6 +280,91 @@ class OfflinePreferenceAdvisor @Inject constructor(
 
     private fun show(v: Double, isInt: Boolean) =
         if (isInt) v.roundToInt().toString() else String.format(java.util.Locale.US, "%.2f", v).trimEnd('0').trimEnd('.')
+
+    private fun isAimi(name: String) = name.startsWith("OApsAIMI") || name.startsWith("Aimi")
+
+    /** Advice for the normal AAPS settings (not AIMI-only). */
+    private fun generalAdvice(name: String, s: GlucoseProfileStats?): PreferenceHint {
+        when (name) {
+            "ApsUseSmb" -> return enable("SMB это основа вашей петли без ввода углеводов")
+            "ApsUseSmbAlways" -> return enable("вы не вводите углеводы, SMB должен работать всегда, а не только при COB")
+            "ApsUseSmbWithCob", "ApsUseSmbAfterCarbs" -> return skip("вы не вводите углеводы, COB не бывает, условие не сработает")
+            "ApsUseSmbWithLowTt", "ApsUseSmbWithHighTt" -> return skip("временные цели вы не используете, SMB и так работает всегда")
+            "ApsUseUam" -> return enable("еда не вводится, UAM находит её по росту сахара")
+            "ApsUseAutosens", "ApsUseDynamicSensitivity", "ApsDynIsfAdjustSensitivity" ->
+                return skip("чувствительность считает сам AIMI")
+            "AutotuneAutoSwitchProfile" -> return caution("авто-переключение профиля сбивает настройки AIMI, делайте вручную")
+            "AlertHypo" -> return enable("защита от низких, это безопасность")
+            "AlertRapidFall" -> return enable("быстрое падение сахара опасно при петле")
+            "AlertMissedBgReading" -> return enable("без данных датчика петля не работает")
+            "AlertPumpUnreachable" -> return enable("если помпа не на связи, инсулин не подаётся")
+            "AlertHyper" -> return if (s != null && s.highPercent >= 20) enable("высоких много (${s.highPercent.roundToInt()}% выше 180)") else skip("высоких мало, шум не нужен")
+            "AlertCarbsRequired", "ApsAlwaysUseShortDeltas" -> return skip("вы не вводите углеводы, функция вам не нужна")
+            "NsClientUploadData" -> return enable("данные уходят в ваш Nightscout, оттуда графики и анализ")
+            "SmsAllowRemoteCommands" -> return caution("удалённые команды рискованны, включайте только если реально нужны")
+            "PumpBtWatchdog" -> return enable("помогает вернуть связь с помпой по Bluetooth")
+            "OverviewUseBolusAdvisor", "OverviewUseBolusReminder", "OverviewUseSuperBolus" ->
+                return skip("вы не вводите болюсы и углеводы сами, функция не нужна")
+        }
+        val noEffect = UI_PREFIXES.any { name.startsWith(it) }
+        return when {
+            noEffect -> skip("оформление, связь или уведомления, на сахар не влияет")
+            s == null -> caution("мало данных, нужно хотя бы 3 дня сахаров")
+            s.lowPercent >= 4 -> caution("частые низкие (${fmt(s.lowPercent)}% ниже 70), не усиливайте")
+            s.tirPercent >= 80 -> skip("результат уже хороший: в диапазоне ${s.tirPercent.roundToInt()}% времени, лучше не менять")
+            else -> skip("заметного эффекта по вашим сахарам не ожидается")
+        }
+    }
+
+    /** Profile advice: [section] is basal, isf, ic or target. Values are per time slot. */
+    internal fun adviseProfile(section: String, values: List<Double>, times: List<Int>, mgdl: Boolean): List<String> {
+        val s = stats ?: return listOf("(Лучше: пока оставить, мало данных, нужно хотя бы 3 дня сахаров)")
+        val lowSoon = s.lowPercent >= 2
+        val highLong = s.highPercent >= 30 && s.lowPercent < 2
+        val lines = ArrayList<String>()
+        when (section) {
+            "ic" -> lines += "(Не нужно менять: вы не вводите углеводы, на вашу петлю не влияет)"
+            "basal" -> {
+                val total = dailyTotal(values, times)
+                when {
+                    lowSoon -> lines += "(Лучше: около ${show(total * 0.9, false)} ЕД в сутки вместо ${show(total, false)}, это на 10% меньше: низкие ${fmt(s.lowPercent)}% времени)"
+                    highLong -> lines += "(Лучше: около ${show(total * 1.1, false)} ЕД в сутки вместо ${show(total, false)}, это на 10% больше: выше 180 в ${s.highPercent.roundToInt()}% времени)"
+                    else -> lines += "(Лучше: оставить ${show(total, false)} ЕД в сутки, сахар в норме, в диапазоне ${s.tirPercent.roundToInt()}% времени)"
+                }
+                if (s.nightLowPercent >= 3) lines += "(Ночью 00:00–06:00 базал лучше снизить на 10–15%: ночью ниже 70 в ${fmt(s.nightLowPercent)}% времени)"
+                else if (s.nightHighPercent >= 25 && s.nightLowPercent < 2) lines += "(Ночью 00:00–06:00 базал лучше поднять на 10%: ночью выше 180 в ${s.nightHighPercent.roundToInt()}% времени)"
+            }
+            "isf" -> {
+                val avg = values.average()
+                when {
+                    lowSoon -> lines += "(Лучше: около ${show(avg * 1.1, false)} вместо ${show(avg, false)}, чувствительность на 10% слабее: низкие ${fmt(s.lowPercent)}% времени)"
+                    highLong -> lines += "(Лучше: около ${show(avg * 0.9, false)} вместо ${show(avg, false)}, чувствительность на 10% сильнее: выше 180 в ${s.highPercent.roundToInt()}% времени)"
+                    else -> lines += "(Лучше: оставить ${show(avg, false)}, сахар в норме, в диапазоне ${s.tirPercent.roundToInt()}% времени)"
+                }
+                lines += "(AIMI меняет ISF динамически, в профиле держите базовое значение)"
+            }
+            "target" -> {
+                val avg = values.average()
+                val step = if (mgdl) 10.0 else 0.5
+                when {
+                    lowSoon -> lines += "(Лучше: цель около ${show(avg + step, false)} вместо ${show(avg, false)}: низкие ${fmt(s.lowPercent)}% времени)"
+                    highLong -> lines += "(Лучше: цель около ${show(avg - step, false)} вместо ${show(avg, false)}: выше 180 в ${s.highPercent.roundToInt()}% времени)"
+                    else -> lines += "(Лучше: оставить ${show(avg, false)}, сахар в норме, в диапазоне ${s.tirPercent.roundToInt()}% времени)"
+                }
+            }
+        }
+        return lines
+    }
+
+    private fun dailyTotal(values: List<Double>, times: List<Int>): Double {
+        if (values.isEmpty() || values.size != times.size) return 0.0
+        var sum = 0.0
+        for (i in values.indices) {
+            val end = if (i + 1 < times.size) times[i + 1] else 24 * 3600
+            sum += values[i] * (end - times[i]) / 3600.0
+        }
+        return sum
+    }
 
     private fun fmt(v: Double) = String.format(java.util.Locale.US, "%.1f", v)
 
@@ -291,11 +382,16 @@ class OfflinePreferenceAdvisor @Inject constructor(
             "OApsAIMIMaxSMB", "OApsAIMIHighBGMaxSMB", "OApsAIMIFCLFactor", "OApsAIMIMealFactor", "OApsAIMIBFFactor",
             "OApsAIMILunchFactor", "OApsAIMIDinnerFactor", "OApsAIMIHCFactor", "OApsAIMISnackFactor", "OApsAIMIsleepFactor",
             "OApsAIMIPriorityMaxIobExtraU", "OApsAIMIAnticipBudgetU", "OApsAIMIautodrivePrebolus",
-            "OApsAIMINightGrowthMaxSmbClamp", "OApsAIMINightGrowthMaxIobExtra"
+            "OApsAIMINightGrowthMaxSmbClamp", "OApsAIMINightGrowthMaxIobExtra", "ApsMaxBasal", "ApsSmbMaxIob", "ApsAmaMaxIob",
+            "ApsMaxMinutesOfBasalToLimitSmb", "ApsUamMaxMinutesOfBasalToLimitSmb"
         )
         private val INSULIN_MULTIPLIERS = setOf(
             "OApsAIMIPriorityMaxIobFactor", "OApsAIMINightGrowthSmbMultiplier", "OApsAIMINightGrowthBasalMultiplier",
-            "OApsAIMIAdaptiveBasalMaxScaling", "OApsAIMIActivityBasalCapFactor"
+            "OApsAIMIAdaptiveBasalMaxScaling", "OApsAIMIActivityBasalCapFactor", "ApsMaxDailyMultiplier", "ApsMaxCurrentBasalMultiplier"
+        )
+        private val UI_PREFIXES = listOf(
+            "General", "Overview", "Wear", "Xdrip", "Maintenance", "SiteRotation", "Eversense", "OpenHumans",
+            "Sms", "VirtualPump", "NsClient", "BgSource", "OApsxdrip", "Alert", "Pump", "Safety"
         )
         private val DIAGNOSTIC = setOf(
             "OApsAIMIIntelligenceSnapshotExport", "OApsAIMIWCycleShadow", "OApsAIMIPredictionAuthorityShadow",

@@ -60,6 +60,7 @@ import app.aaps.core.objects.profile.ProfileSealed
 import app.aaps.core.ui.R
 import app.aaps.core.ui.compose.AapsTopAppBar
 import app.aaps.core.ui.compose.clearFocusOnTap
+import app.aaps.core.ui.compose.preference.ProfileHintLines
 import app.aaps.ui.compose.profileManagement.viewmodels.ProfileEditorViewModel
 import app.aaps.ui.compose.profileManagement.viewmodels.ProfileUiState
 import app.aaps.ui.compose.profileManagement.viewmodels.SingleProfileState
@@ -435,6 +436,7 @@ private fun IcContent(
             )
         }
 
+        ProfileHintLines("ic", profile.ic.map { it.value }, profile.ic.map { it.timeSeconds }, profile.mgdl)
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
@@ -491,6 +493,7 @@ private fun IsfContent(
             )
         }
 
+        ProfileHintLines("isf", profile.isf.map { it.value }, profile.isf.map { it.timeSeconds }, profile.mgdl)
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
@@ -537,6 +540,7 @@ private fun BasalContent(
     state: ProfileUiState
 ) {
     Column {
+        ProfileHintLines("basal", profile.basal.map { it.value }, profile.basal.map { it.timeSeconds }, profile.mgdl)
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
@@ -602,6 +606,7 @@ private fun TargetContent(
     state: ProfileUiState
 ) {
     Column {
+        ProfileHintLines("target", profile.targetLow.map { it.value }, profile.targetLow.map { it.timeSeconds }, profile.mgdl)
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)

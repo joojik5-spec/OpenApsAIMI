@@ -26,6 +26,10 @@ object PreferenceHints {
     @Volatile
     var numberProvider: ((String, Double, Double, Double, Boolean) -> PreferenceHint?)? = null
 
+    /** Advice for profile sections: section (basal, isf, ic, target), values, start times in seconds, mg/dl. */
+    @Volatile
+    var profileProvider: ((String, List<Double>, List<Int>, Boolean) -> List<String>)? = null
+
     /** Changes when the advice is recalculated, so screens redraw. */
     val version = mutableIntStateOf(0)
 
@@ -63,4 +67,14 @@ fun PreferenceHintLine(key: String) {
         else                        -> GreenLight
     }
     Text(text = hint.text, color = color, style = MaterialTheme.typography.bodySmall)
+}
+
+/** Draws advice lines for a profile section (Russian only). */
+@Composable
+fun ProfileHintLines(section: String, values: List<Double>, times: List<Int>, mgdl: Boolean) {
+    @Suppress("UNUSED_VARIABLE")
+    val redrawOn = PreferenceHints.version.intValue
+    if (Locale.getDefault().language != "ru") return
+    val lines = PreferenceHints.profileProvider?.invoke(section, values, times, mgdl) ?: return
+    lines.forEach { Text(text = it, color = GreenLight, style = MaterialTheme.typography.bodySmall) }
 }
