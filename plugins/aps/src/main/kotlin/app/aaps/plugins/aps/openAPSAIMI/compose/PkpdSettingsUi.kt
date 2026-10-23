@@ -50,6 +50,9 @@ import app.aaps.core.keys.valueResId
 import app.aaps.core.ui.compose.AapsSpacing
 import app.aaps.core.ui.compose.LocalPreferences
 import app.aaps.core.ui.compose.SliderWithButtons
+import app.aaps.core.ui.compose.preference.PreferenceHintLine
+import app.aaps.core.ui.compose.preference.PreferenceNumberHintLine
+import app.aaps.plugins.aps.openAPSAIMI.advisor.OfflinePreferenceAdvisor
 import app.aaps.core.data.format.NumberFormat
 import app.aaps.core.ui.compose.preference.AdaptiveDoublePreferenceItem
 import app.aaps.core.ui.compose.preference.AdaptiveIntPreferenceItem
@@ -200,6 +203,7 @@ fun PkpdSimpleSettingsContent(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 
+    PreferenceHintLine(OfflinePreferenceAdvisor.PKPD_UI_PRESET)
     PkpdPresetChipRow(
         selectedPreset = selectedPreset,
         onPresetSelected = { selectedPreset = it },
@@ -230,6 +234,7 @@ fun PkpdSimpleSettingsContent(
             PkpdCorrectionPrudence.applyLevel(preferences, it)
             onPreferenceRevisionBump()
         },
+        hintKey = OfflinePreferenceAdvisor.PKPD_UI_CORRECTIONS,
     )
 
     // Same polarity as corrections: left = cautious (less delivery), right = allow more.
@@ -244,6 +249,7 @@ fun PkpdSimpleSettingsContent(
             PkpdTailPrudence.applyUiLevel(preferences, it)
             onPreferenceRevisionBump()
         },
+        hintKey = OfflinePreferenceAdvisor.PKPD_UI_TAIL,
     )
 
     OutlinedButton(onClick = onOpenAdvanced, modifier = Modifier.fillMaxWidth()) {
@@ -579,6 +585,7 @@ fun PkpdLabeledSlider(
     leftLabel: String,
     rightLabel: String,
     onValueChange: (Double) -> Unit,
+    hintKey: String? = null,
 ) {
     var local by remember { mutableDoubleStateOf(value) }
     var userEdited by remember { mutableStateOf(false) }
@@ -598,6 +605,7 @@ fun PkpdLabeledSlider(
         summary?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        hintKey?.let { PreferenceNumberHintLine(it, local, valueRange.start, valueRange.endInclusive, false) }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(leftLabel, style = MaterialTheme.typography.labelSmall)
             Text(rightLabel, style = MaterialTheme.typography.labelSmall)
@@ -678,6 +686,7 @@ fun PkpdReactiveDoubleSlider(
         summaryRes?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        PreferenceNumberHintLine(key.key, local, key.min, key.max, false)
         SliderWithButtons(
             value = local,
             onValueChange = {

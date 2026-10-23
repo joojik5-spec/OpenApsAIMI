@@ -171,7 +171,18 @@ class OfflinePreferenceAdvisor @Inject constructor(
             if (key.key in result || SECRET_WORDS.any { key.name.contains(it, ignoreCase = true) }) continue
             result[key.key] = adviseChoice(key.name, s)
         }
+        result[PKPD_UI_PRESET] = presetHint(s)
         return result
+    }
+
+    private fun presetHint(s: GlucoseProfileStats?): PreferenceHint {
+        val text = when {
+            s == null -> "(Лучше: оставить текущий пресет, мало данных, нужно хотя бы 3 дня сахаров)"
+            s.lowPercent >= 2 -> "(Лучше: более «медленный» пресет, низкие бывают: ${fmt(s.lowPercent)}% времени ниже 70)"
+            else -> "(Лучше: пресет, который совпадает с вашим инсулином, сейчас подгонять по сахару нет причин)"
+        }
+        val why = "Почему так: пресет задаёт форму действия инсулина (пик и длительность). Тип вашего инсулина по графику сахара не определить, поэтому главное правило: выбирайте пресет, соответствующий реальному инсулину. Если же низкие бывают от 2% времени, возможно инсулин действует дольше, чем в пресете, и тогда выбирайте более медленный: так петля дольше помнит про поданную дозу. Дальше PK/PD сам уточняет форму по вашим данным."
+        return PreferenceHint(PreferenceHintLevel.ENABLE, text + "\n" + why + " " + dataLine(s))
     }
 
     private fun adviseChoice(name: String, s: GlucoseProfileStats?): PreferenceHint {
@@ -274,7 +285,7 @@ class OfflinePreferenceAdvisor @Inject constructor(
         }
     }
 
-    private enum class NumberKind { MORE_INSULIN, MORE_INSULIN_MULTIPLIER, INTERVAL, LOW_MARK, HIGH_MARK, LGS_THRESHOLD, OTHER }
+    private enum class NumberKind { MORE_INSULIN, MORE_INSULIN_MULTIPLIER, INTERVAL, LOW_MARK, HIGH_MARK, LGS_THRESHOLD, PKPD_DIA, PKPD_PEAK, PKPD_DAMPING, PKPD_LEVEL, OTHER }
 
     private fun buildNumberKinds(): Map<String, NumberKind> {
         val map = HashMap<String, NumberKind>()
@@ -285,9 +296,15 @@ class OfflinePreferenceAdvisor @Inject constructor(
             map[k.key] = when (n) {
                 in INSULIN_MULTIPLIERS -> NumberKind.MORE_INSULIN_MULTIPLIER
                 in INSULIN_AMOUNTS -> NumberKind.MORE_INSULIN
+                "OApsAIMIPkpdInitialDiaH", "OApsAIMIPkpdAnchorDiaH" -> NumberKind.PKPD_DIA
+                "OApsAIMIPkpdInitialPeakMin", "OApsAIMIPkpdAnchorPeakMin" -> NumberKind.PKPD_PEAK
+                "OApsAIMISmbTailDamping", "OApsAIMISmbExerciseDamping", "OApsAIMISmbLateFatDamping" -> NumberKind.PKPD_DAMPING
                 else -> NumberKind.OTHER
             }
         }
+        // Sliders on the PK/PD simple screen have no key of their own.
+        map[PKPD_UI_CORRECTIONS] = NumberKind.PKPD_LEVEL
+        map[PKPD_UI_TAIL] = NumberKind.PKPD_LEVEL
         for (k in UnitDoubleKey.entries) {
             numberNames[k.key] = k.name
             map[k.key] = when (k.name) {
@@ -331,6 +348,38 @@ class OfflinePreferenceAdvisor @Inject constructor(
                             "\nПочему так: порог отключения подачи при низком сахаре. Чем он выше, тем раньше петля прекращает инсулин при падении, и тем меньше риск гипо, но тем чаще инсулин урезается зря. Поднимаю на 5 мг/дл (0,3 ммоль/л), если ниже 70 бывает от 2% времени; иначе оставляю. ${dataLine(s)}")
                 }
             }
+        }
+        if (kind == NumberKind.PKPD_DIA || kind == NumberKind.PKPD_PEAK || kind == NumberKind.PKPD_DAMPING || kind == NumberKind.PKPD_LEVEL) {
+            val lows = s.lowPercent >= 2
+            val highs = s.highPercent >= 30 && s.lowPercent < 2
+            val step = when (kind) {
+                NumberKind.PKPD_DIA -> 0.5
+                NumberKind.PKPD_PEAK -> 10.0
+                NumberKind.PKPD_DAMPING -> 0.05
+                else -> 0.1
+            }
+            // For damping, a smaller number means stronger damping. For levels, left = cautious.
+            val sign = when (kind) {
+                NumberKind.PKPD_DIA, NumberKind.PKPD_PEAK -> if (lows) 1 else 0
+                NumberKind.PKPD_DAMPING -> if (lows) -1 else if (highs) 1 else 0
+                else -> if (lows) -1 else if (highs) 1 else 0
+            }
+            val target = (value + sign * step).coerceIn(min, max)
+            val shown = Math.round(target * 100.0) / 100.0
+            val reason = when {
+                lows -> "низкие бывают: ${fmt(s.lowPercent)}% времени ниже 70"
+                highs -> "выше 180 в ${s.highPercent.roundToInt()}% времени при редких низких"
+                else -> "сахар в норме, в диапазоне $tir% времени"
+            }
+            val short = if (sign == 0 || shown == value) "(Лучше: оставить ${show(value, isInt)}, $reason)"
+            else "(Лучше: ${show(shown, isInt)} вместо ${show(value, isInt)}: $reason)"
+            val why = when (kind) {
+                NumberKind.PKPD_DIA -> "DIA это время, за которое инсулин полностью заканчивает действовать. Если оно в модели короче настоящего, петля думает, что инсулина уже нет, и подаёт новый поверх старого: отсюда поздние низкие. Поэтому при низких от 2% времени удлиняю на 0,5 часа. При высоких DIA сокращать нельзя: так модель решит, что инсулин «ушёл», и накопит запас, который даст гипо позже. Сам PK/PD дальше подстраивает значение под вас в пределах границ."
+                NumberKind.PKPD_PEAK -> "Пик это время наибольшего действия инсулина после подачи. Если реально инсулин действует позже, чем в модели, петля считает пик пройденным и добавляет новую дозу, и появляются низкие. Поэтому при низких от 2% времени сдвигаю пик на 10 минут позже; иначе оставляю. По графику сахара точный пик не определить, так что шаг маленький."
+                NumberKind.PKPD_DAMPING -> "Это коэффициент ослабления SMB в «хвосте» действия инсулина (поздняя фаза, после нагрузки или жирной еды). Чем он меньше, тем сильнее ослабление и тем осторожнее петля. При низких от 2% времени уменьшаю на 0,05 (осторожнее); при долгих высоких и редких низких увеличиваю на 0,05 (смелее); иначе оставляю."
+                else -> "Это ползунок осторожности: влево петля осторожнее и подаёт меньше, вправо смелее. При низких от 2% времени сдвигаю на 0,1 влево, при долгих высоких (выше 180 от 30% времени) и редких низких на 0,1 вправо. Шаг маленький, потому что результат виден только через несколько часов."
+            }
+            return PreferenceHint(PreferenceHintLevel.ENABLE, short + "\nПочему так: " + why + " " + dataLine(s))
         }
         // Direction: -1 = less insulin, +1 = more insulin, 0 = keep.
         val direction: Int
@@ -489,6 +538,9 @@ class OfflinePreferenceAdvisor @Inject constructor(
             "OApsAIMIAdaptiveBasalMaxScaling", "OApsAIMIActivityBasalCapFactor", "ApsMaxDailyMultiplier", "ApsMaxCurrentBasalMultiplier"
         )
         private val SECRET_WORDS = listOf("password", "pin", "secret", "token", "apikey", "api_key", "url", "uri", "email", "phone", "user", "name")
+        const val PKPD_UI_CORRECTIONS = "pkpd_ui_corrections"
+        const val PKPD_UI_TAIL = "pkpd_ui_tail"
+        const val PKPD_UI_PRESET = "pkpd_ui_preset"
         private const val GENERAL_WHY = "Общая настройка: при частых низких (от 4% времени ниже 70) её нельзя усиливать, потому что лишний инсулин только добавит гипо. При результате в диапазоне 80% и выше менять не нужно. При выше 180 от 30% времени стоит попробовать, потому что инсулина явно не хватает."
         private val GENERAL_SPECIFIC = setOf(
             "ApsUseSmb", "ApsUseSmbAlways", "ApsUseSmbWithCob", "ApsUseSmbAfterCarbs", "ApsUseSmbWithLowTt", "ApsUseSmbWithHighTt",
