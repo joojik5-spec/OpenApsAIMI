@@ -4,6 +4,10 @@ import app.aaps.core.data.model.GV
 import app.aaps.core.interfaces.db.PersistenceLayer
 import app.aaps.core.interfaces.logging.AAPSLogger
 import app.aaps.core.interfaces.logging.LTag
+import app.aaps.core.interfaces.profile.ProfileFunction
+import app.aaps.core.interfaces.sharedPreferences.SP
+import app.aaps.core.keys.interfaces.Preferences
+import org.json.JSONObject
 import app.aaps.core.keys.BooleanKey
 import app.aaps.core.keys.DoubleKey
 import app.aaps.core.keys.IntKey
@@ -15,6 +19,7 @@ import app.aaps.core.ui.compose.preference.PreferenceHints
 import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -124,18 +129,27 @@ data class GlucoseProfileStats(
 @Singleton
 class OfflinePreferenceAdvisor @Inject constructor(
     private val persistenceLayer: PersistenceLayer,
-    private val aapsLogger: AAPSLogger
+    private val aapsLogger: AAPSLogger,
+    private val preferences: Preferences,
+    private val sp: SP,
+    private val profileFunction: ProfileFunction
 ) {
 
     @Volatile private var hints: Map<String, PreferenceHint> = emptyMap()
     @Volatile private var lastRefreshMs = 0L
     @Volatile private var stats: GlucoseProfileStats? = null
+    @Volatile private var evalHints: Map<String, PreferenceHint> = emptyMap()
+    private val changes = LinkedHashMap<String, Change>()
+    private var changesLoaded = false
     private val numberNames = HashMap<String, String>()
     private val numberKinds: Map<String, NumberKind> by lazy { buildNumberKinds() }
 
     fun install() {
-        PreferenceHints.provider = { key -> hints[key] }
-        PreferenceHints.profileProvider = { section, values, times, mgdl -> adviseProfile(section, values, times, mgdl) }
+        PreferenceHints.provider = { key -> evalHints[key] ?: hints[key] }
+        PreferenceHints.profileProvider = { section, values, times, mgdl ->
+            val eval = evalHints["profile:$section"]
+            if (eval != null) eval.text.split("\n").map { "⏱ $it" } else adviseProfile(section, values, times, mgdl)
+        }
         PreferenceHints.numberProvider = { key, value, min, max, isInt -> adviseNumber(key, value, min, max, isInt) }
     }
 
@@ -145,6 +159,8 @@ class OfflinePreferenceAdvisor @Inject constructor(
             val now = System.currentTimeMillis()
             val readings = persistenceLayer.getBgReadingsDataFromTimeToTime(now - DAYS * DAY_MS, now, ascending = true)
             stats = GlucoseProfileStats.from(readings)
+            trackChanges(now)
+            evalHints = buildEvalHints(readings, now)
             hints = buildHints(stats)
             lastRefreshMs = now
             PreferenceHints.bump()
@@ -325,6 +341,7 @@ class OfflinePreferenceAdvisor @Inject constructor(
 
     /** Says which value is better now for a number setting, based on the same glucose stats. */
     internal fun adviseNumber(key: String, value: Double, min: Double, max: Double, isInt: Boolean): PreferenceHint? {
+        evalHints[PKPD_ALIASES[key] ?: key]?.let { return it }
         val kind = numberKinds[key] ?: return null
         val s = stats ?: return PreferenceHint(PreferenceHintLevel.ENABLE, "(Лучше: пока оставить ${show(value, isInt)}, мало данных, нужно хотя бы 3 дня сахаров)")
         val tir = s.tirPercent.roundToInt()
@@ -422,6 +439,139 @@ class OfflinePreferenceAdvisor @Inject constructor(
 
     private fun show(v: Double, isInt: Boolean) =
         if (isInt) v.roundToInt().toString() else String.format(java.util.Locale.US, "%.2f", v).trimEnd('0').trimEnd('.')
+
+
+    // ---- Change tracking: after a setting changes, wait, collect stats, then judge the effect. ----
+
+    private data class Change(
+        val key: String,
+        val oldText: String,
+        val newText: String,
+        val changedAt: Long,
+        val tir: Double,
+        val low: Double,
+        val high: Double
+    )
+
+    private fun trackable(name: String) = TRACK_SKIP_WORDS.none { name.contains(it, ignoreCase = true) } &&
+        SECRET_WORDS.none { name.contains(it, ignoreCase = true) }
+
+    private fun num(v: Double) = (Math.round(v * 100.0) / 100.0).toString().removeSuffix(".0")
+
+    private suspend fun currentValues(): Map<String, String> {
+        val m = HashMap<String, String>()
+        for (k in BooleanKey.entries) if (trackable(k.name)) runCatching { m[k.key] = if (preferences.get(k)) "включено" else "выключено" }
+        for (k in IntKey.entries) if (trackable(k.name)) runCatching { m[k.key] = preferences.get(k).toString() }
+        for (k in DoubleKey.entries) if (trackable(k.name)) runCatching { m[k.key] = num(preferences.get(k)) }
+        for (k in UnitDoubleKey.entries) if (trackable(k.name)) runCatching { m[k.key] = num(preferences.get(k)) }
+        runCatching {
+            profileFunction.getProfile()?.let { p ->
+                m["profile:basal"] = num(p.baseBasalSum()) + " ЕД/сут"
+                m["profile:isf"] = num(p.getIsfsMgdlValues().map { it.value }.average()) + " мг/дл"
+                m["profile:ic"] = num(p.getIcsValues().map { it.value }.average())
+                val hours = listOf(0, 6, 12, 18).map { it * 3600 }
+                m["profile:target"] = num(hours.map { (p.getTargetLowMgdlTimeFromMidnight(it) + p.getTargetHighMgdlTimeFromMidnight(it)) / 2.0 }.average()) + " мг/дл"
+            }
+        }
+        return m
+    }
+
+    private fun loadChanges() {
+        if (changesLoaded) return
+        changesLoaded = true
+        runCatching {
+            val o = JSONObject(sp.getString(CHANGES_KEY, "{}"))
+            for (k in o.keys()) {
+                val c = o.getJSONObject(k)
+                changes[k] = Change(k, c.getString("o"), c.getString("n"), c.getLong("t"), c.getDouble("tir"), c.getDouble("lo"), c.getDouble("hi"))
+            }
+        }
+    }
+
+    private fun saveChanges() {
+        val o = JSONObject()
+        for ((k, c) in changes) {
+            o.put(k, JSONObject().put("o", c.oldText).put("n", c.newText).put("t", c.changedAt).put("tir", c.tir).put("lo", c.low).put("hi", c.high))
+        }
+        sp.putString(CHANGES_KEY, o.toString())
+    }
+
+    private suspend fun trackChanges(now: Long) {
+        loadChanges()
+        val current = currentValues()
+        val prev = runCatching {
+            val o = JSONObject(sp.getString(SNAPSHOT_KEY, "{}"))
+            o.keys().asSequence().associateWith { o.getString(it) }
+        }.getOrDefault(emptyMap())
+        if (prev.isNotEmpty()) {
+            for ((k, v) in current) {
+                val old = prev[k] ?: continue
+                if (old == v) continue
+                val existing = changes[k]
+                if (existing != null && now - existing.changedAt < OBSERVE_MS) {
+                    if (existing.oldText == v) changes.remove(k) else changes[k] = existing.copy(newText = v, changedAt = now)
+                } else {
+                    changes[k] = Change(k, old, v, now, stats?.tirPercent ?: -1.0, stats?.lowPercent ?: -1.0, stats?.highPercent ?: -1.0)
+                }
+            }
+        }
+        val snap = JSONObject()
+        for ((k, v) in current) snap.put(k, v)
+        sp.putString(SNAPSHOT_KEY, snap.toString())
+        changes.entries.removeAll { now - it.value.changedAt > TOTAL_MS }
+        saveChanges()
+    }
+
+    private fun age(ms: Long): String {
+        val h = ms / 3_600_000L
+        return if (h < 48) "$h ч" else "${h / 24} дн. ${h % 24} ч"
+    }
+
+    private fun buildEvalHints(readings: List<GV>, now: Long): Map<String, PreferenceHint> {
+        val out = HashMap<String, PreferenceHint>()
+        for (c in changes.values) {
+            val passed = now - c.changedAt
+            val since = readings.filter { it.timestamp >= c.changedAt }
+            val change = "с ${c.oldText} на ${c.newText}"
+            if (passed < OBSERVE_MS) {
+                out[c.key] = PreferenceHint(PreferenceHintLevel.EVALUATION,
+                    "(Изменено ${age(passed)} назад: $change. Идёт сбор статистики, оценка будет через ${age(OBSERVE_MS - passed)})\n" +
+                        "Почему рекомендации скрыты: за 1–2 дня выводы ненадёжны, потому что на сахар влияют еда, ночь, активность и датчик. " +
+                        "Нужно минимум 3 суток, чтобы увидеть и дни, и ночи. Новая рекомендация по этой настройке временно не показывается, чтобы не гоняться за шумом и не менять всё сразу. " +
+                        "Показаний сахара с момента изменения: ${since.size} из примерно ${OBSERVE_MS / 300_000L} нужных.")
+                continue
+            }
+            val after = GlucoseProfileStats.from(since)
+            if (after == null || c.tir < 0) {
+                out[c.key] = PreferenceHint(PreferenceHintLevel.EVALUATION,
+                    "(Прошло ${age(passed)} после изменения $change: данных до или после мало, оценить результат пока нельзя)")
+                continue
+            }
+            val dTir = after.tirPercent - c.tir
+            val dLow = after.lowPercent - c.low
+            val dHigh = after.highPercent - c.high
+            val verdict = when {
+                dLow >= 1.0 || dTir <= -3.0 -> "НЕ ПОМОГЛО (стало хуже)"
+                (dTir >= 3.0 && dLow < 1.0) || (dLow <= -1.0 && dTir > -3.0) -> "ПОМОГЛО"
+                else -> "заметной разницы нет"
+            }
+            val others = changes.values.count { it.key != c.key && abs(it.changedAt - c.changedAt) <= 24 * 3_600_000L }
+            val next = when {
+                verdict.startsWith("НЕ") -> "Что делать: верните прежнее значение (${c.oldText}) или сделайте шаг вдвое меньше, потом снова подождите 3 суток."
+                verdict == "ПОМОГЛО" -> "Что делать: оставьте как есть и подождите ещё 3–5 дней, прежде чем менять следующую настройку."
+                else -> "Что делать: эффекта пока не видно. Подождите ещё 3–5 дней: у части настроек эффект проявляется только в определённые часы."
+            }
+            val caveat = if (others > 0) "В это же время менялись ещё настройки: $others шт., поэтому вывод ориентировочный. " else ""
+            out[c.key] = PreferenceHint(PreferenceHintLevel.EVALUATION,
+                "(Прошло ${age(passed)} после изменения $change: $verdict)\n" +
+                    "Что показали цифры: в диапазоне 70–180 стало ${after.tirPercent.roundToInt()}% (было ${c.tir.roundToInt()}%), " +
+                    "ниже 70 стало ${fmt(after.lowPercent)}% (было ${fmt(c.low)}%), выше 180 стало ${after.highPercent.roundToInt()}% (было ${c.high.roundToInt()}%). " +
+                    "Правило оценки: «помогло», если время в диапазоне выросло на 3 пункта и больше без роста низких на 1 пункт, либо низкие упали на 1 пункт и больше; " +
+                    "«не помогло», если низких стало больше на 1 пункт или диапазон упал на 3 пункта. " +
+                    "За несколько дней на сахар влияют еда, активность, датчик и самочувствие. $caveat$next")
+        }
+        return out
+    }
 
     private fun isAimi(name: String) = name.startsWith("OApsAIMI") || name.startsWith("Aimi")
 
@@ -538,6 +688,15 @@ class OfflinePreferenceAdvisor @Inject constructor(
             "OApsAIMIAdaptiveBasalMaxScaling", "OApsAIMIActivityBasalCapFactor", "ApsMaxDailyMultiplier", "ApsMaxCurrentBasalMultiplier"
         )
         private val SECRET_WORDS = listOf("password", "pin", "secret", "token", "apikey", "api_key", "url", "uri", "email", "phone", "user", "name")
+        private const val CHANGES_KEY = "aimi_offline_advisor_changes_v1"
+        private const val SNAPSHOT_KEY = "aimi_offline_advisor_snapshot_v1"
+        private const val OBSERVE_MS = 72 * 3_600_000L
+        private const val TOTAL_MS = 10 * 24 * 3_600_000L
+        private val TRACK_SKIP_WORDS = listOf("State", "Last", "Learned", "Wizard", "Estimated", "TDD", "Weight")
+        private val PKPD_ALIASES = mapOf(
+            "pkpd_ui_corrections" to DoubleKey.OApsAIMIIsfFusionMinFactor.key,
+            "pkpd_ui_tail" to DoubleKey.OApsAIMISmbTailDamping.key
+        )
         const val PKPD_UI_CORRECTIONS = "pkpd_ui_corrections"
         const val PKPD_UI_TAIL = "pkpd_ui_tail"
         const val PKPD_UI_PRESET = "pkpd_ui_preset"

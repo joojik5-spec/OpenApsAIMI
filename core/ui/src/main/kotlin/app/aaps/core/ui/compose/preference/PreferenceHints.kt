@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 import java.util.Locale
 
 /** How strong the advice is. It only changes the color of the hint. */
-enum class PreferenceHintLevel { ENABLE, SKIP, CAUTION }
+enum class PreferenceHintLevel { ENABLE, SKIP, CAUTION, EVALUATION }
 
 /** Short advice for one setting. [text] already includes the reason. */
 data class PreferenceHint(val level: PreferenceHintLevel, val text: String)
@@ -45,6 +45,7 @@ object PreferenceHints {
 
 private val GreenLight = Color(0xFF2E9E4F)
 private val RedLight = Color(0xFFD9534F)
+private val YellowLight = Color(0xFFD4A017)
 
 /** Draws the advice line for a number setting: which value is better now. */
 @Composable
@@ -53,7 +54,8 @@ fun PreferenceNumberHintLine(key: String, value: Double, min: Double, max: Doubl
     val redrawOn = PreferenceHints.version.intValue
     if (Locale.getDefault().language != "ru") return
     val hint = PreferenceHints.numberProvider?.invoke(key, value, min, max, isInt) ?: return
-    Text(text = hint.text, color = GreenLight, style = MaterialTheme.typography.bodySmall)
+    val color = if (hint.level == PreferenceHintLevel.EVALUATION) YellowLight else GreenLight
+    Text(text = hint.text, color = color, style = MaterialTheme.typography.bodySmall)
 }
 
 /** Draws the advice line for [key] if there is one. */
@@ -64,6 +66,7 @@ fun PreferenceHintLine(key: String) {
     val hint = PreferenceHints.hintFor(key) ?: return
     val color = when (hint.level) {
         PreferenceHintLevel.CAUTION -> RedLight
+        PreferenceHintLevel.EVALUATION -> YellowLight
         else                        -> GreenLight
     }
     Text(text = hint.text, color = color, style = MaterialTheme.typography.bodySmall)
@@ -76,5 +79,7 @@ fun ProfileHintLines(section: String, values: List<Double>, times: List<Int>, mg
     val redrawOn = PreferenceHints.version.intValue
     if (Locale.getDefault().language != "ru") return
     val lines = PreferenceHints.profileProvider?.invoke(section, values, times, mgdl) ?: return
-    lines.forEach { Text(text = it, color = GreenLight, style = MaterialTheme.typography.bodySmall) }
+    lines.forEach {
+        Text(text = it, color = if (it.startsWith("⏱")) YellowLight else GreenLight, style = MaterialTheme.typography.bodySmall)
+    }
 }
