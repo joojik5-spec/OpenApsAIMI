@@ -49,7 +49,7 @@ import app.aaps.core.keys.IntNonKey
 import app.aaps.core.keys.StringKey
 import app.aaps.core.keys.UnitDoubleKey
 import app.aaps.core.keys.interfaces.Preferences
-import app.aaps.plugins.aps.openAPSAIMI.advisor.AimiProfileAdvisorActivity
+import app.aaps.plugins.aps.openAPSAIMI.advisor.assistant.AimiAssistantActivity
 import app.aaps.plugins.aps.openAPSAIMI.advisor.auditor.model.AuditorUIState
 import app.aaps.plugins.aps.openAPSAIMI.advisor.auditor.ui.AuditorNotificationManager
 import app.aaps.plugins.aps.openAPSAIMI.advisor.auditor.ui.AuditorStatusIndicator
@@ -1552,7 +1552,7 @@ internal class DashboardShellController(
 
     private fun launchAimiAdvisorActivity() {
         try {
-            val intent = Intent(host.context, AimiProfileAdvisorActivity::class.java)
+            val intent = Intent(host.context, AimiAssistantActivity::class.java)
             host.context.startActivity(intent)
         } catch (e: Exception) {
             aapsLogger.error(LTag.CORE, "Failed to launch Advisor: ${e.message}")

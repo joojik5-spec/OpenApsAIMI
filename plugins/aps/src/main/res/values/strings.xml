@@ -1924,4 +1924,32 @@
     <string name="aimi_adv_train_q_out_too_few">too few rows</string>
     <string name="aimi_adv_train_q_out_rejected">model rejected by the quality check</string>
     <string name="aimi_adv_train_q_out_other">model not trained</string>
+    <string name="aimi_as_title">AIMI Assistant</string>
+    <string name="aimi_as_loading">Reading the AIMI log. Please wait.</string>
+    <string name="aimi_as_overview">Last 3 days</string>
+    <string name="aimi_as_no_data">Not enough data in the AIMI log yet.</string>
+    <string name="aimi_as_stats" comment="%1$d=TIR percent, %2$.1f=percent of time below 3.9 mmol/L, %3$.1f=mean glucose mmol/L, %4$d=number of low episodes, %5$d=number of late reaction episodes">In range: %1$d%%. Below 3.9: %2$.1f%%. Mean: %3$.1f mmol/L. Low episodes: %4$d. Late reactions: %5$d.</string>
+    <string name="aimi_as_low_line" comment="%1$s=date and time, %2$.1f=lowest glucose mmol/L, %3$d=SMB count in the 2 hours before, %4$.1f=average minutes between SMB, %5$.1f=IOB at the start">Low %1$s: %2$.1f mmol/L. Before it, %3$d SMB in 2 hours, every %4$.1f min, IOB at start %5$.1f U.</string>
+    <string name="aimi_as_proposals">Proposed changes</string>
+    <string name="aimi_as_nothing">No changes to propose now. Settings changed in the last 3 days are not proposed again.</string>
+    <string name="aimi_as_settings">Settings</string>
+    <string name="aimi_as_apply">Apply</string>
+    <string name="aimi_as_history_icon">!</string>
+    <string name="aimi_as_open_old">Open the old Advisor</string>
+    <string name="aimi_as_restore_default">Restore standard</string>
+    <string name="aimi_as_close">Close</string>
+    <string name="aimi_as_hist_default" comment="%1$s=standard value">Standard value: %1$s</string>
+    <string name="aimi_as_hist_now" comment="%1$s=current value">Now: %1$s</string>
+    <string name="aimi_as_hist_none">No changes made through the assistant yet.</string>
+    <string name="aimi_as_hist_line" comment="%1$s=date, %2$s=old value, %3$s=new value">%1$s: changed from %2$s to %3$s</string>
+    <string name="aimi_as_hist_result" comment="Before and after: TIR percent, percent below 3.9, mean mmol/L">Before: in range %1$d%%, low %2$.1f%%, mean %3$.1f. After: in range %4$d%%, low %5$.1f%%, mean %6$.1f.</string>
+    <string name="aimi_as_what_high_bg_interval">Minimum time between SMB when glucose is high. A larger value gives fewer SMB in a row. A fast rise can still skip it.</string>
+    <string name="aimi_as_what_priority_extra">How many units AIMI may add above Max IOB in priority situations. A smaller value keeps IOB closer to Max IOB.</string>
+    <string name="aimi_as_what_high_bg_max_smb">Largest SMB when glucose is high, also in meal and rise situations.</string>
+    <string name="aimi_as_what_max_smb">Largest SMB at normal glucose. It is a hard limit below 6.7 mmol/L.</string>
+    <string name="aimi_as_what_red_carpet">When the safety checks cut an SMB, the full dose is restored if the cut is at least this large. A lower value restores less often.</string>
+    <string name="aimi_as_reason_series" comment="%1$d=low episodes, %2$d=average SMB count in 2 hours, %3$.1f=average minutes between SMB, %4$.1f=lowest glucose mmol/L">Before %1$d low episodes AIMI gave about %2$d SMB in 2 hours, one every %3$.1f min. Each dose is small, but together they overshoot. The lowest value was %4$.1f mmol/L. A longer interval gives each dose time to work.</string>
+    <string name="aimi_as_reason_priority" comment="%1$d=number of lows, %2$.1f=lowest glucose">There were %1$d lows (the lowest %2$.1f mmol/L). In priority situations AIMI adds extra IOB above your Max IOB. A smaller extra value lowers the peak IOB.</string>
+    <string name="aimi_as_reason_red_carpet" comment="%1$d=number of lows">There were %1$d lows. When safety cuts an SMB, Red Carpet can give the full dose back. A lower threshold gives it back less often.</string>
+    <string name="aimi_as_reason_late" comment="%1$d=number of late episodes, %2$d=average delay minutes">Glucose went above 8.0 mmol/L and the first SMB came late %1$d times, on average after %2$d min. There were no lows in this period. A higher Max SMB lets the first dose be larger.</string>
 </resources>
