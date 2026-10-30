@@ -187,6 +187,8 @@ class AimiAssistantActivity : TranslatedDaggerAppCompatActivity() {
         card.addView(text("${s.englishName}: ${fmt(s, p.current)} → ${fmt(s, p.proposed)}", 16f, bold = true))
         card.addView(text(getString(s.whatItDoes), 13f))
         card.addView(text(getString(p.reasonRes, *p.reasonArgs.toTypedArray()), 14f))
+        card.addView(text(getString(s.related), 13f))
+        if (s.tpoWritable) card.addView(text(getString(R.string.aimi_as_tpo_note), 13f))
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         row.addView(Button(this).apply {
             text = getString(R.string.aimi_as_apply)

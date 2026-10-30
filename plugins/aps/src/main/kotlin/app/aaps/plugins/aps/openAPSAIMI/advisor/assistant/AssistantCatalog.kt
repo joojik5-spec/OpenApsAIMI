@@ -10,6 +10,9 @@ import app.aaps.plugins.aps.R
  */
 object AssistantCatalog {
 
+    private fun dbl(key: DoubleKey, name: String, step: Double, what: Int, related: Int, tpo: Boolean, min: Double = key.min) =
+        AssistantSetting(name, AssistantSetting.Kind.DOUBLE, key.key, key.defaultValue, min, key.max, step, what, related, tpo)
+
     val highBgInterval = AssistantSetting(
         englishName = "High BG SMB interval (min)",
         kind = AssistantSetting.Kind.INT,
@@ -19,49 +22,21 @@ object AssistantCatalog {
         max = IntKey.OApsAIMIHighBGinterval.max.toDouble(),
         step = 1.0,
         whatItDoes = R.string.aimi_as_what_high_bg_interval,
+        related = R.string.aimi_as_rel_interval,
     )
-    val priorityExtra = AssistantSetting(
-        englishName = "Priority MaxIOB extra (U)",
-        kind = AssistantSetting.Kind.DOUBLE,
-        prefKey = DoubleKey.OApsAIMIPriorityMaxIobExtraU.key,
-        default = DoubleKey.OApsAIMIPriorityMaxIobExtraU.defaultValue,
-        min = DoubleKey.OApsAIMIPriorityMaxIobExtraU.min,
-        max = DoubleKey.OApsAIMIPriorityMaxIobExtraU.max,
-        step = 0.5,
-        whatItDoes = R.string.aimi_as_what_priority_extra,
-    )
-    val highBgMaxSmb = AssistantSetting(
-        englishName = "High BG Max SMB (U)",
-        kind = AssistantSetting.Kind.DOUBLE,
-        prefKey = DoubleKey.OApsAIMIHighBGMaxSMB.key,
-        default = DoubleKey.OApsAIMIHighBGMaxSMB.defaultValue,
-        min = DoubleKey.OApsAIMIHighBGMaxSMB.min,
-        max = DoubleKey.OApsAIMIHighBGMaxSMB.max,
-        step = 0.1,
-        whatItDoes = R.string.aimi_as_what_high_bg_max_smb,
-    )
-    val maxSmb = AssistantSetting(
-        englishName = "Max SMB (U)",
-        kind = AssistantSetting.Kind.DOUBLE,
-        prefKey = DoubleKey.OApsAIMIMaxSMB.key,
-        default = DoubleKey.OApsAIMIMaxSMB.defaultValue,
-        min = DoubleKey.OApsAIMIMaxSMB.min,
-        max = DoubleKey.OApsAIMIMaxSMB.max,
-        step = 0.1,
-        whatItDoes = R.string.aimi_as_what_max_smb,
-    )
-    val redCarpet = AssistantSetting(
-        englishName = "Red Carpet restore threshold",
-        kind = AssistantSetting.Kind.DOUBLE,
-        prefKey = DoubleKey.OApsAIMIRedCarpetRestoreThreshold.key,
-        default = DoubleKey.OApsAIMIRedCarpetRestoreThreshold.defaultValue,
-        min = DoubleKey.OApsAIMIRedCarpetRestoreThreshold.min,
-        max = DoubleKey.OApsAIMIRedCarpetRestoreThreshold.max,
-        step = 0.05,
-        whatItDoes = R.string.aimi_as_what_red_carpet,
-    )
+    val priorityExtra = dbl(DoubleKey.OApsAIMIPriorityMaxIobExtraU, "Priority MaxIOB extra (U)", 0.5, R.string.aimi_as_what_priority_extra, R.string.aimi_as_rel_iob, true)
+    val priorityFactor = dbl(DoubleKey.OApsAIMIPriorityMaxIobFactor, "Priority MaxIOB factor", 0.1, R.string.aimi_as_what_priority_factor, R.string.aimi_as_rel_iob, true)
+    val maxIob = dbl(DoubleKey.ApsSmbMaxIob, "Max IOB (U)", 0.5, R.string.aimi_as_what_max_iob, R.string.aimi_as_rel_iob, false)
+    val highBgMaxSmb = dbl(DoubleKey.OApsAIMIHighBGMaxSMB, "High BG Max SMB (U)", 0.1, R.string.aimi_as_what_high_bg_max_smb, R.string.aimi_as_rel_smb_size, true)
+    val maxSmb = dbl(DoubleKey.OApsAIMIMaxSMB, "Max SMB (U)", 0.1, R.string.aimi_as_what_max_smb, R.string.aimi_as_rel_smb_size, true)
+    val redCarpet = dbl(DoubleKey.OApsAIMIRedCarpetRestoreThreshold, "Red Carpet restore threshold", 0.05, R.string.aimi_as_what_red_carpet, R.string.aimi_as_rel_smb_size, true)
+    val tailDamping = dbl(DoubleKey.OApsAIMISmbTailDamping, "SMB tail damping", 0.05, R.string.aimi_as_what_tail_damping, R.string.aimi_as_rel_smb_size, true, min = 0.60)
+    val lateFatDamping = dbl(DoubleKey.OApsAIMISmbLateFatDamping, "SMB late fat damping", 0.05, R.string.aimi_as_what_late_fat, R.string.aimi_as_rel_smb_size, true, min = 0.60)
+    val adaptiveBasal = dbl(DoubleKey.OApsAIMIAdaptiveBasalMaxScaling, "Adaptive basal max scaling", 0.1, R.string.aimi_as_what_adaptive_basal, R.string.aimi_as_rel_basal, false)
 
-    val all: List<AssistantSetting> = listOf(highBgInterval, priorityExtra, highBgMaxSmb, maxSmb, redCarpet)
+    val all: List<AssistantSetting> = listOf(
+        highBgInterval, priorityExtra, priorityFactor, maxIob, highBgMaxSmb, maxSmb, redCarpet, tailDamping, lateFatDamping, adaptiveBasal,
+    )
 
     fun byKey(prefKey: String): AssistantSetting? = all.firstOrNull { it.prefKey == prefKey }
 }

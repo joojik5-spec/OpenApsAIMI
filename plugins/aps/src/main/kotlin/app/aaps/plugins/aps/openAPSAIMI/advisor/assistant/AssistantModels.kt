@@ -44,6 +44,10 @@ data class AssistantSetting(
     val max: Double,
     val step: Double,
     @StringRes val whatItDoes: Int,
+    /** Text about other settings that change the same value. */
+    @StringRes val related: Int,
+    /** True if the TPO module may overwrite this value for a while. */
+    val tpoWritable: Boolean = false,
 ) {
     enum class Kind { DOUBLE, INT }
 }

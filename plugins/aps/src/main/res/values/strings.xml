@@ -1954,4 +1954,24 @@
     <string name="aimi_as_reason_late" comment="%1$d=number of late episodes, %2$d=average delay minutes">Glucose went above 8.0 mmol/L and the first SMB came late %1$d times, on average after %2$d min. There were no lows in this period. A higher Max SMB lets the first dose be larger.</string>
     <string name="aimi_as_waiting" comment="%1$s=setting name, %2$s=date of the last change, %3$d=hours left to wait">The last change was %1$s (%2$s). Wait for its result, about %3$d more hours. Then the next proposal appears. This way you can see which change helped.</string>
     <string name="aimi_as_more" comment="%1$s=names of the other settings in the queue">Next in the queue: %1$s.</string>
+    <string name="aimi_as_tpo_note">Note: the TPO module can change this value for a while. After a loop run, check that the value is the one you set.</string>
+    <string name="aimi_as_rel_interval">Related: a fast rise (delta above 15) forces a 1 minute interval. Below 6.7 mmol/L the interval is at least 5 minutes. Meal modes use their own interval settings.</string>
+    <string name="aimi_as_rel_iob">Related: Max IOB, Priority MaxIOB factor and Priority MaxIOB extra set the IOB limit together. At night the growth headroom adds more.</string>
+    <string name="aimi_as_rel_smb_size">Related: SMB size is set together by Max SMB, High BG Max SMB, SMB tail damping, SMB late fat damping and Red Carpet. The ladder picks the limit by glucose and rise.</string>
+    <string name="aimi_as_rel_basal">Related: basal is also limited by Max multiplier, T3C aggressiveness and the activity cap.</string>
+    <string name="aimi_as_what_priority_factor">Multiplier of Max IOB in priority situations. A smaller value keeps IOB closer to Max IOB.</string>
+    <string name="aimi_as_what_max_iob">The IOB limit. SMB stops when IOB is above it. Priority MaxIOB and the night headroom can raise it for a while.</string>
+    <string name="aimi_as_what_tail_damping">Cuts SMB in the late part of the insulin action. A lower value cuts more. 1.00 means no cut.</string>
+    <string name="aimi_as_what_late_fat">Cuts SMB when a late rise after fatty food is expected. A lower value cuts more.</string>
+    <string name="aimi_as_what_adaptive_basal">The highest scaling of basal by the adaptive channel. A smaller value gives less extra basal.</string>
+    <string name="aimi_as_reason_tail" comment="%1$d=number of lows">There were %1$d lows. A stronger tail damping cuts SMB late in the insulin action, when the earlier doses are still working.</string>
+    <string name="aimi_as_reason_priority_factor" comment="%1$d=number of lows, %2$.1f=lowest glucose">There were %1$d lows (the lowest %2$.1f mmol/L). In priority situations AIMI multiplies Max IOB by this factor. A smaller factor lowers the peak IOB.</string>
+    <string name="aimi_as_reason_hb_max_down" comment="%1$d=number of lows">There were %1$d lows. The largest SMB at high glucose is also used in meal and rise situations, so a smaller value lowers the biggest doses.</string>
+    <string name="aimi_as_reason_basal" comment="%1$d=number of lows, %2$.1f=lowest glucose">There were %1$d lows (the lowest %2$.1f mmol/L). Basal can also add insulin. A smaller scaling limit gives less extra basal.</string>
+    <string name="aimi_as_reason_max_iob" comment="%1$d=number of lows, %2$.1f=lowest glucose">There were %1$d lows (the lowest %2$.1f mmol/L). A lower Max IOB stops SMB sooner. This is the last step, because other settings raise the limit above it.</string>
+    <string name="aimi_as_reason_late_interval" comment="%1$d=number of late episodes, %2$d=average delay minutes">The first SMB came late %1$d times, on average after %2$d min. A shorter interval lets the next dose come sooner.</string>
+    <string name="aimi_as_reason_late_hb" comment="%1$d=number of late episodes, %2$d=average delay minutes">The first SMB came late %1$d times, on average after %2$d min. A higher limit at high glucose lets the dose be larger when glucose rises.</string>
+    <string name="aimi_as_reason_late_tail" comment="%1$d=number of late episodes, %2$d=average delay minutes">The first SMB came late %1$d times, on average after %2$d min. A weaker tail damping cuts the dose less.</string>
+    <string name="aimi_as_reason_late_red" comment="%1$d=number of late episodes, %2$d=average delay minutes">The first SMB came late %1$d times, on average after %2$d min. A higher threshold gives back the full dose more often after a safety cut.</string>
+    <string name="aimi_as_reason_late_iob" comment="%1$d=number of late episodes, %2$d=average delay minutes">The first SMB came late %1$d times, on average after %2$d min. A larger extra IOB room allows more insulin in priority situations.</string>
 </resources>
