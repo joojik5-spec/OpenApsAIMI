@@ -1910,4 +1910,16 @@
     <string name="aimi_hormonitor_hypo_suppressed">Predictive hypo suppressed</string>
     <string name="aimi_hormonitor_composite_min">Composite min</string>
     <string name="aimi_hormonitor_mean">mean</string>
+    <string name="aimi_adv_train_q_title">SMB training: row quality limit</string>
+    <string name="aimi_adv_train_q_desc">Rows with a quality value below this limit are not used to train the SMB model. A lower limit gives more rows, but the data is rougher. A higher limit gives cleaner data, but fewer rows. The usual value is 0.40. If training says there are too few rows, lower the limit by 0.05 and wait.</string>
+    <string name="aimi_adv_train_q_hint">0.00 to 1.00</string>
+    <string name="aimi_adv_train_q_apply">Apply</string>
+    <string name="aimi_adv_train_q_saved">Saved. Training will run again in the next loop run.</string>
+    <string name="aimi_adv_train_q_invalid">Enter a number from 0.00 to 1.00.</string>
+    <string name="aimi_adv_train_q_never">No training attempt yet.</string>
+    <string name="aimi_adv_train_q_status" comment="%1$s=result text, %2$d=rows in the file, %3$d=rows that passed the limit. Example: Last attempt: model saved. Rows in file: 9000. Passed the limit: 4200.">Last attempt: %1$s. Rows in file: %2$d. Passed the limit: %3$d.</string>
+    <string name="aimi_adv_train_q_out_trained">model saved</string>
+    <string name="aimi_adv_train_q_out_too_few">too few rows</string>
+    <string name="aimi_adv_train_q_out_rejected">model rejected by the quality check</string>
+    <string name="aimi_adv_train_q_out_other">model not trained</string>
 </resources>

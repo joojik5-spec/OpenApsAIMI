@@ -1196,4 +1196,16 @@
     <string name="oaps_aimi_adaptive_basal_summary">Automatically scale standard basal rates based on neural insights (for all users).</string>
     <string name="oaps_aimi_adaptive_basal_max_scaling_title">Max Adaptive Scaling</string>
     <string name="oaps_aimi_adaptive_basal_max_scaling_summary">Maximum multiplier allowed for adaptive basal scaling (e.g. 1.5x).</string>
+    <string name="aimi_adv_train_q_title">Обучение SMB: порог качества строк</string>
+    <string name="aimi_adv_train_q_desc">Строки с качеством ниже порога в обучении модели SMB не участвуют. Чем ниже порог, тем больше строк, но данные грубее. Чем выше порог, тем данные чище, но строк меньше. Обычное значение: 0,40. Если обучение пишет, что строк слишком мало, снизь порог на 0,05 и подожди.</string>
+    <string name="aimi_adv_train_q_hint">от 0,00 до 1,00</string>
+    <string name="aimi_adv_train_q_apply">Применить</string>
+    <string name="aimi_adv_train_q_saved">Сохранено. Обучение запустится заново при ближайшем цикле.</string>
+    <string name="aimi_adv_train_q_invalid">Введи число от 0,00 до 1,00.</string>
+    <string name="aimi_adv_train_q_never">Попыток обучения ещё не было.</string>
+    <string name="aimi_adv_train_q_status" comment="%1$s=result text, %2$d=rows in the file, %3$d=rows that passed the limit. Example: Last attempt: model saved. Rows in file: 9000. Passed the limit: 4200.">Последняя попытка: %1$s. Строк в файле: %2$d. Прошли порог: %3$d.</string>
+    <string name="aimi_adv_train_q_out_trained">модель сохранена</string>
+    <string name="aimi_adv_train_q_out_too_few">строк слишком мало</string>
+    <string name="aimi_adv_train_q_out_rejected">модель отклонена проверкой качества</string>
+    <string name="aimi_adv_train_q_out_other">модель не обучена</string>
 </resources>

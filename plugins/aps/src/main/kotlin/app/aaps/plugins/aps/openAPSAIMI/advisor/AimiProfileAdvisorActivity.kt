@@ -67,6 +67,10 @@ import app.aaps.plugins.aps.openAPSAIMI.compose.AimiBehaviorFamilyId
 import app.aaps.plugins.aps.openAPSAIMI.compose.AimiControlCenterPendingChanges
 import app.aaps.plugins.aps.openAPSAIMI.compose.AimiFamilyWritebackPlan
 import java.util.Locale
+import android.text.InputType
+import android.widget.EditText
+import app.aaps.core.keys.DoubleKey
+import app.aaps.plugins.aps.openAPSAIMI.ml.AimiSmbTrainer
 
 
 /**
@@ -137,6 +141,9 @@ class AimiProfileAdvisorActivity : TranslatedDaggerAppCompatActivity() {
             setBackgroundColor(bgColor)
         }
         setContentView(scrollView)
+
+        // First line of the screen: the user sets the SMB training quality limit by hand.
+        rootLayout.addView(createTrainingQualityCard())
 
         val loadingText = TextView(this).apply {
             text = rh.gs(R.string.aimi_adv_loading)
@@ -1299,6 +1306,90 @@ class AimiProfileAdvisorActivity : TranslatedDaggerAppCompatActivity() {
             }
         }
         return card
+    }
+
+    /**
+     * Top card. The user types any quality limit from 0.00 to 1.00 for the rows used to train the SMB model.
+     * The change is saved at once and the training runs again in the next loop run.
+     */
+    private fun createTrainingQualityCard(): CardView {
+        val card = CardView(this).apply {
+            radius = 16f
+            setCardBackgroundColor(cardColor)
+            cardElevation = 0f
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { setMargins(0, 0, 0, 32) }
+        }
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 24, 24, 24)
+        }
+        column.addView(TextView(this).apply {
+            text = rh.gs(R.string.aimi_adv_train_q_title)
+            textSize = 14f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#94A3B8"))
+        })
+        column.addView(TextView(this).apply {
+            text = rh.gs(R.string.aimi_adv_train_q_desc)
+            textSize = 13f
+            setTextColor(Color.parseColor("#CBD5E1"))
+            setPadding(0, 8, 0, 16)
+        })
+
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setSingleLine(true)
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.parseColor("#64748B"))
+            hint = rh.gs(R.string.aimi_adv_train_q_hint)
+            setText(String.format(Locale.getDefault(), "%.2f", preferences.get(DoubleKey.OApsAIMISmbTrainingMinQuality)))
+        }
+        column.addView(input)
+
+        val status = TextView(this).apply {
+            textSize = 12f
+            setTextColor(Color.parseColor("#94A3B8"))
+            setPadding(0, 12, 0, 0)
+            text = trainingQualityStatusText()
+        }
+
+        val buttonRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+            setPadding(0, 16, 0, 0)
+        }
+        buttonRow.addView(Button(this).apply {
+            text = rh.gs(R.string.aimi_adv_train_q_apply)
+            setOnClickListener {
+                val value = input.text.toString().trim().replace(',', '.').toDoubleOrNull()
+                if (value == null || value < 0.0 || value > 1.0) {
+                    status.text = rh.gs(R.string.aimi_adv_train_q_invalid)
+                } else {
+                    preferences.put(DoubleKey.OApsAIMISmbTrainingMinQuality, value)
+                    status.text = rh.gs(R.string.aimi_adv_train_q_saved)
+                }
+            }
+        })
+        column.addView(buttonRow)
+        column.addView(status)
+        card.addView(column)
+        return card
+    }
+
+    /** One line with the last SMB training attempt: result, rows in the file, rows that passed the limit. */
+    private fun trainingQualityStatusText(): String {
+        val result = AimiSmbTrainer.lastResult() ?: return rh.gs(R.string.aimi_adv_train_q_never)
+        val outcomeText = when (result.outcome) {
+            AimiSmbTrainer.TrainingOutcome.TRAINED           -> rh.gs(R.string.aimi_adv_train_q_out_trained)
+            AimiSmbTrainer.TrainingOutcome.TOO_FEW_SAMPLES   -> rh.gs(R.string.aimi_adv_train_q_out_too_few)
+            AimiSmbTrainer.TrainingOutcome.REJECTED_BY_GATES -> rh.gs(R.string.aimi_adv_train_q_out_rejected)
+            else                                             -> rh.gs(R.string.aimi_adv_train_q_out_other)
+        }
+        return rh.gs(R.string.aimi_adv_train_q_status, outcomeText, result.totalRows, result.samplesAfterFilter)
     }
 
     private fun createTuningContextCard(report: AdvisorReport, cardColor: Int): CardView {

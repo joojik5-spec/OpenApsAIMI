@@ -258,6 +258,22 @@ class SmbRefinementFeatureSchemaTest {
     }
 
     @Test
+    fun should_use_for_training_accepts_a_limit_set_by_the_user() {
+        val causalStart = SmbRefinementFeatureSchema.BASE_FEATURE_COUNT + 4 + 3
+        fun features(quality: Float) = FloatArray(SmbRefinementFeatureSchema.INPUT_SIZE - 1).also {
+            it[causalStart + 1] = 0.2f
+            it[causalStart + 2] = quality
+        }
+
+        // Row quality 0.30: dropped by the default limit, kept when the user lowers the limit to 0.25.
+        assertThat(SmbRefinementFeatureSchema.shouldUseForTraining(features(0.30f))).isFalse()
+        assertThat(SmbRefinementFeatureSchema.shouldUseForTraining(features(0.30f), minLearningQuality = 0.25f)).isTrue()
+        // Row quality 0.45: kept by the default limit, dropped when the user raises the limit to 0.50.
+        assertThat(SmbRefinementFeatureSchema.shouldUseForTraining(features(0.45f))).isTrue()
+        assertThat(SmbRefinementFeatureSchema.shouldUseForTraining(features(0.45f), minLearningQuality = 0.50f)).isFalse()
+    }
+
+    @Test
     fun should_use_csv_row_for_training_keeps_rows_with_only_dual_delivery_flags() {
         val headers = listOf(
             "dateStr", "bg", "iob", "cob", "delta", "shortAvgDelta", "longAvgDelta",

@@ -190,15 +190,23 @@ internal object SmbRefinementFeatureSchema {
      */
     const val MIN_TRAINING_LEARNING_QUALITY = 0.40f
 
-    fun shouldUseForTraining(rawFeatures: FloatArray): Boolean {
+    fun shouldUseForTraining(
+        rawFeatures: FloatArray,
+        minLearningQuality: Float = MIN_TRAINING_LEARNING_QUALITY,
+    ): Boolean {
         val causalStart = BASE_FEATURE_COUNT + LATENT_FEATURE_COUNT + MODE_FEATURE_COUNT
         val protectiveConfidence = rawFeatures.getOrElse(causalStart + 1) { NEUTRAL_CAUSAL_PROTECTIVE_CONFIDENCE }
         val learningQuality = rawFeatures.getOrElse(causalStart + 2) { NEUTRAL_CAUSAL_LEARNING_QUALITY }
-        return learningQuality >= MIN_TRAINING_LEARNING_QUALITY && protectiveConfidence < 0.86f
+        return learningQuality >= minLearningQuality && protectiveConfidence < 0.86f
     }
 
-    fun shouldUseCsvRowForTraining(headers: List<String>, cols: List<String>, rawFeatures: FloatArray): Boolean {
-        if (!shouldUseForTraining(rawFeatures)) return false
+    fun shouldUseCsvRowForTraining(
+        headers: List<String>,
+        cols: List<String>,
+        rawFeatures: FloatArray,
+        minLearningQuality: Float = MIN_TRAINING_LEARNING_QUALITY,
+    ): Boolean {
+        if (!shouldUseForTraining(rawFeatures, minLearningQuality)) return false
 
         val conflictFlags = headerValue(headers, cols, "decisionConflictFlags").orEmpty().trim()
         if (hasBlockingConflictFlag(conflictFlags)) {
