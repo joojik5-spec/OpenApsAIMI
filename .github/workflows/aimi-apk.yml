@@ -43,7 +43,8 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build app (release, signed)
-        run: ./gradlew :app:assembleFullRelease --no-daemon > build.log 2>&1 || (grep -E "^e: |FAILED|error:" build.log | head -60; exit 1)
+        run: |
+          ./gradlew :app:assembleFullRelease --no-daemon > build.log 2>&1 || { grep -E "^e: |FAILED|error:" build.log | head -60; exit 1; }
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/monkeystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
