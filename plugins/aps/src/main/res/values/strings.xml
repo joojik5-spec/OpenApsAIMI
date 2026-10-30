@@ -1974,4 +1974,11 @@
     <string name="aimi_as_reason_late_tail" comment="%1$d=number of late episodes, %2$d=average delay minutes">The first SMB came late %1$d times, on average after %2$d min. A weaker tail damping cuts the dose less.</string>
     <string name="aimi_as_reason_late_red" comment="%1$d=number of late episodes, %2$d=average delay minutes">The first SMB came late %1$d times, on average after %2$d min. A higher threshold gives back the full dose more often after a safety cut.</string>
     <string name="aimi_as_reason_late_iob" comment="%1$d=number of late episodes, %2$d=average delay minutes">The first SMB came late %1$d times, on average after %2$d min. A larger extra IOB room allows more insulin in priority situations.</string>
+    <string name="aimi_as_ph_title">Post-low protection: when to let SMB work again</string>
+    <string name="aimi_as_ph_desc">After a low, the loop blocks SMB for a while so the sugar does not fall again. This block ends when the sugar is above the target by the first value and is rising faster than the second value. Standard: 20 and 5. The old values were 30 and 15. Lower values end the block earlier.</string>
+    <string name="aimi_as_ph_margin_label">Sugar above target, mg/dL (5 to 60)</string>
+    <string name="aimi_as_ph_delta_label">Rise in 5 minutes, mg/dL (1 to 30)</string>
+    <string name="aimi_as_ph_apply">Apply</string>
+    <string name="aimi_as_ph_saved">Saved. The loop uses the new values from the next run.</string>
+    <string name="aimi_as_ph_invalid">Enter the first value from 5 to 60 and the second from 1 to 30.</string>
 </resources>

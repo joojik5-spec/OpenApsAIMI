@@ -96,6 +96,7 @@ class AimiAssistantActivity : TranslatedDaggerAppCompatActivity() {
         root.removeAllViews()
         root.addView(title(getString(R.string.aimi_as_title)))
         root.addView(trainingCard())
+        root.addView(postHypoCard())
         if (loading) {
             root.addView(text(getString(R.string.aimi_as_loading)))
             return
@@ -179,6 +180,43 @@ class AimiAssistantActivity : TranslatedDaggerAppCompatActivity() {
         })
         card.addView(status)
         return card
+    }
+
+    private fun postHypoCard(): LinearLayout {
+        val card = box()
+        card.addView(text(getString(R.string.aimi_as_ph_title), 16f, bold = true))
+        card.addView(text(getString(R.string.aimi_as_ph_desc), 13f))
+        val marginInput = numberInput(preferences.get(DoubleKey.OApsAIMIPostHypoReleaseMarginMgdl))
+        val deltaInput = numberInput(preferences.get(DoubleKey.OApsAIMIPostHypoReleaseDeltaMgdl))
+        card.addView(text(getString(R.string.aimi_as_ph_margin_label), 13f))
+        card.addView(marginInput)
+        card.addView(text(getString(R.string.aimi_as_ph_delta_label), 13f))
+        card.addView(deltaInput)
+        val status = text("", 13f)
+        card.addView(Button(this).apply {
+            text = getString(R.string.aimi_as_ph_apply)
+            setOnClickListener {
+                val margin = marginInput.text.toString().replace(',', '.').toDoubleOrNull()
+                val delta = deltaInput.text.toString().replace(',', '.').toDoubleOrNull()
+                val marginKey = DoubleKey.OApsAIMIPostHypoReleaseMarginMgdl
+                val deltaKey = DoubleKey.OApsAIMIPostHypoReleaseDeltaMgdl
+                if (margin == null || delta == null || margin !in marginKey.min..marginKey.max || delta !in deltaKey.min..deltaKey.max) {
+                    status.text = getString(R.string.aimi_as_ph_invalid)
+                } else {
+                    preferences.put(marginKey, margin)
+                    preferences.put(deltaKey, delta)
+                    status.text = getString(R.string.aimi_as_ph_saved)
+                }
+            }
+        })
+        card.addView(status)
+        return card
+    }
+
+    private fun numberInput(value: Double) = EditText(this).apply {
+        inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        setTextColor(Color.WHITE)
+        setText(String.format(Locale.US, "%.1f", value))
     }
 
     private fun proposalCard(p: AssistantProposal): LinearLayout {

@@ -2547,6 +2547,10 @@ class DetermineBasalaimiSMB2 @Inject constructor(
         lastCoffeeBasalChange = null
         lastPostHypoSmbBeforeCapU = null
         lastPostHypoSmbAfterCapU = null
+        PostHypoAggressiveRiseExit.configure(
+            preferences.get(DoubleKey.OApsAIMIPostHypoReleaseMarginMgdl),
+            preferences.get(DoubleKey.OApsAIMIPostHypoReleaseDeltaMgdl),
+        )
         // Cross-tick hysteresis (InsulinSlope / Endogenous) must NOT reset here — that zeroed
         // holdTicks every loop and made 15–20 min holds dead on arrival. reset() belongs in
         // tests / plugin restart only.
