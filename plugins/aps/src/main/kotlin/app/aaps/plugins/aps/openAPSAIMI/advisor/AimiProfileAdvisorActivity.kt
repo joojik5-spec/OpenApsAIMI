@@ -69,6 +69,7 @@ import app.aaps.plugins.aps.openAPSAIMI.compose.AimiFamilyWritebackPlan
 import java.util.Locale
 import android.text.InputType
 import android.widget.EditText
+import androidx.appcompat.widget.SwitchCompat
 import app.aaps.core.keys.DoubleKey
 import app.aaps.plugins.aps.openAPSAIMI.ml.AimiSmbTrainer
 
@@ -1350,6 +1351,20 @@ class AimiProfileAdvisorActivity : TranslatedDaggerAppCompatActivity() {
         }
         column.addView(input)
 
+        column.addView(TextView(this).apply {
+            text = rh.gs(R.string.aimi_adv_train_f_desc)
+            textSize = 13f
+            setTextColor(Color.parseColor("#CBD5E1"))
+            setPadding(0, 24, 0, 8)
+        })
+        val relaxedSwitch = SwitchCompat(this).apply {
+            text = rh.gs(R.string.aimi_adv_train_f_title)
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            isChecked = preferences.get(BooleanKey.OApsAIMISmbTrainingRelaxedFilter)
+        }
+        column.addView(relaxedSwitch)
+
         val status = TextView(this).apply {
             textSize = 12f
             setTextColor(Color.parseColor("#94A3B8"))
@@ -1370,6 +1385,7 @@ class AimiProfileAdvisorActivity : TranslatedDaggerAppCompatActivity() {
                     status.text = rh.gs(R.string.aimi_adv_train_q_invalid)
                 } else {
                     preferences.put(DoubleKey.OApsAIMISmbTrainingMinQuality, value)
+                    preferences.put(BooleanKey.OApsAIMISmbTrainingRelaxedFilter, relaxedSwitch.isChecked)
                     status.text = rh.gs(R.string.aimi_adv_train_q_saved)
                 }
             }

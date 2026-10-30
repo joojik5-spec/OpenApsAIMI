@@ -17299,6 +17299,7 @@ class DetermineBasalaimiSMB2 @Inject constructor(
             dir = externalDir,
             csvFile = csvfile,
             minLearningQuality = preferences.get(DoubleKey.OApsAIMISmbTrainingMinQuality).toFloat(),
+            relaxedFilter = preferences.get(BooleanKey.OApsAIMISmbTrainingRelaxedFilter),
         )
 
         // 🎯 Inference-only O(1): fallback to predictedSMB on any issue

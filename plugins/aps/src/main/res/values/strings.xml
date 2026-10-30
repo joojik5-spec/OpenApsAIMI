@@ -1911,7 +1911,9 @@
     <string name="aimi_hormonitor_composite_min">Composite min</string>
     <string name="aimi_hormonitor_mean">mean</string>
     <string name="aimi_adv_train_q_title">SMB training: row quality limit</string>
-    <string name="aimi_adv_train_q_desc">Rows with a quality value below this limit are not used to train the SMB model. A lower limit gives more rows, but the data is rougher. A higher limit gives cleaner data, but fewer rows. The usual value is 0.40. If training says there are too few rows, lower the limit by 0.05 and wait.</string>
+    <string name="aimi_adv_train_q_desc">Rows with a quality value below this limit are not used to train the SMB model. A lower limit gives more rows, but the data is rougher. A higher limit gives cleaner data, but fewer rows. The standard value is 0.40. If training says there are too few rows, lower the limit by 0.05 and wait.</string>
+    <string name="aimi_adv_train_f_title">Relaxed row filter</string>
+    <string name="aimi_adv_train_f_desc">Off: the original filter. Any conflict flag removes the row, also the harmless dual delivery flag. Almost every real SMB has this flag, so the model may get no real SMB rows. On: harmless dual delivery flags are ignored and the check rows are cut in blocks. Press Apply to save both settings.</string>
     <string name="aimi_adv_train_q_hint">0.00 to 1.00</string>
     <string name="aimi_adv_train_q_apply">Apply</string>
     <string name="aimi_adv_train_q_saved">Saved. Training will run again in the next loop run.</string>

@@ -1197,7 +1197,9 @@
     <string name="oaps_aimi_adaptive_basal_max_scaling_title">Max Adaptive Scaling</string>
     <string name="oaps_aimi_adaptive_basal_max_scaling_summary">Maximum multiplier allowed for adaptive basal scaling (e.g. 1.5x).</string>
     <string name="aimi_adv_train_q_title">Обучение SMB: порог качества строк</string>
-    <string name="aimi_adv_train_q_desc">Строки с качеством ниже порога в обучении модели SMB не участвуют. Чем ниже порог, тем больше строк, но данные грубее. Чем выше порог, тем данные чище, но строк меньше. Обычное значение: 0,40. Если обучение пишет, что строк слишком мало, снизь порог на 0,05 и подожди.</string>
+    <string name="aimi_adv_train_q_desc">Строки с качеством ниже порога в обучении модели SMB не участвуют. Чем ниже порог, тем больше строк, но данные грубее. Чем выше порог, тем данные чище, но строк меньше. Стандартное значение: 0,40. Если обучение пишет, что строк слишком мало, снизь порог на 0,05 и подожди.</string>
+    <string name="aimi_adv_train_f_title">Мягкий отбор строк</string>
+    <string name="aimi_adv_train_f_desc">Выключено: исходный отбор. Любой флаг конфликта убирает строку, даже безобидный флаг двойной подачи. Он стоит почти на каждом реальном SMB, поэтому модель может остаться без строк с настоящими SMB. Включено: безобидные флаги двойной подачи не считаются, а проверочные строки берутся блоками по времени. Оба параметра сохраняются кнопкой «Применить».</string>
     <string name="aimi_adv_train_q_hint">от 0,00 до 1,00</string>
     <string name="aimi_adv_train_q_apply">Применить</string>
     <string name="aimi_adv_train_q_saved">Сохранено. Обучение запустится заново при ближайшем цикле.</string>

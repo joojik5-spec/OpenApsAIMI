@@ -205,11 +205,18 @@ internal object SmbRefinementFeatureSchema {
         cols: List<String>,
         rawFeatures: FloatArray,
         minLearningQuality: Float = MIN_TRAINING_LEARNING_QUALITY,
+        relaxedFilter: Boolean = true,
     ): Boolean {
         if (!shouldUseForTraining(rawFeatures, minLearningQuality)) return false
 
         val conflictFlags = headerValue(headers, cols, "decisionConflictFlags").orEmpty().trim()
-        if (hasBlockingConflictFlag(conflictFlags)) {
+        // Relaxed mode ignores the harmless dual delivery flags. Normal mode: any flag blocks the row.
+        val blockedByFlags = if (relaxedFilter) {
+            hasBlockingConflictFlag(conflictFlags)
+        } else {
+            conflictFlags.isNotEmpty() && conflictFlags != "[]" && conflictFlags.lowercase() != "none"
+        }
+        if (blockedByFlags) {
             return false
         }
 

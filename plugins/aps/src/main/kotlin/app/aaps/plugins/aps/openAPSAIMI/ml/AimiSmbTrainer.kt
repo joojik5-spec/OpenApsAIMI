@@ -126,8 +126,8 @@ object AimiSmbTrainer {
     // freeze the clock.
     private val lastAttemptMs   = AtomicLong(0L)
 
-    /** The quality limit the last call used. When it changes, the next attempt runs at once. */
-    private val lastQualityLimitUsed = AtomicReference<Float?>(null)
+    /** The quality limit and filter mode the last call used. When they change, the next attempt runs at once. */
+    private val lastTrainingSettingsUsed = AtomicReference<Pair<Float, Boolean>?>(null)
     private val lastTrainMs     = AtomicLong(0L)
     private val rowsAtLastTrain = AtomicLong(0L)
 
@@ -297,13 +297,14 @@ object AimiSmbTrainer {
         dir: File,
         csvFile: File,
         minLearningQuality: Float = SmbRefinementFeatureSchema.MIN_TRAINING_LEARNING_QUALITY,
+        relaxedFilter: Boolean = true,
     ) {
         val now = System.currentTimeMillis()
 
-        // The user changed the quality limit: forget the last attempt time, so the next attempt
-        // runs now and does not wait for the 6 hour limit.
-        val previousQuality = lastQualityLimitUsed.getAndSet(minLearningQuality)
-        if (previousQuality != null && previousQuality != minLearningQuality) {
+        // The user changed the quality limit or the filter mode: forget the last attempt time,
+        // so the next attempt runs now and does not wait for the 6 hour limit.
+        val previousSettings = lastTrainingSettingsUsed.getAndSet(Pair(minLearningQuality, relaxedFilter))
+        if (previousSettings != null && previousSettings != Pair(minLearningQuality, relaxedFilter)) {
             lastAttemptMs.set(0L)
         }
 
@@ -320,7 +321,7 @@ object AimiSmbTrainer {
             if (trainMutex.isLocked) return@launch  // Another training in progress
             trainMutex.withLock {
                 try {
-                    trainNow(dir, csvFile, minLearningQuality)
+                    trainNow(dir, csvFile, minLearningQuality, relaxedFilter)
                 } catch (e: Exception) {
                     recordFailure()
                     recordResult(dir, TrainingResult(atMs = System.currentTimeMillis(), outcome = TrainingOutcome.ERROR, gateDetail = e.message ?: e.toString()))
@@ -404,6 +405,7 @@ object AimiSmbTrainer {
         dir: File,
         csvFile: File,
         minLearningQuality: Float = SmbRefinementFeatureSchema.MIN_TRAINING_LEARNING_QUALITY,
+        relaxedFilter: Boolean = true,
     ) {
         // Always the first thing this function does — see [ensureStateLoadedLocked]. Safe to call
         // unlocked here because every production call to `trainNow` already runs inside
@@ -487,7 +489,7 @@ object AimiSmbTrainer {
             recordResult(dir, TrainingResult(atMs = now, outcome = TrainingOutcome.REFUSED_HEADER, totalRows = totalRows, gateDetail = headerCheck.reason))
             return
         }
-        val corpus = buildTrainingCorpus(headers, dataLines, minLearningQuality)
+        val corpus = buildTrainingCorpus(headers, dataLines, minLearningQuality, relaxedFilter)
         if (corpus == null) {
             recordResult(dir, TrainingResult(atMs = now, outcome = TrainingOutcome.REFUSED_HEADER, totalRows = totalRows, gateDetail = "corpus could not be built"))
             return
@@ -533,7 +535,7 @@ object AimiSmbTrainer {
         var lastGateMessage = ""
         val net = NeuralModelTrainer.trainAndPublish(
             weightsFile = AimiSmbModelStore.modelFile(dir),
-            split = NeuralModelTrainer.splitInBlocks(inputs, targets),
+            split = if (relaxedFilter) NeuralModelTrainer.splitInBlocks(inputs, targets) else NeuralModelTrainer.split80_20(inputs, targets),
             config = TrainingConfig(learningRate = 0.001, epochs = 300),
             inputSize = INPUT_SIZE,
             regularizationLambda = 0.01,
@@ -651,6 +653,7 @@ object AimiSmbTrainer {
         headers: List<String>,
         dataLines: List<String>,
         minLearningQuality: Float = SmbRefinementFeatureSchema.MIN_TRAINING_LEARNING_QUALITY,
+        relaxedFilter: Boolean = true,
     ): TrainingCorpus? {
         val headerCheck = checkCorpusHeader(headers)
         if (!headerCheck.valid) {
@@ -669,7 +672,7 @@ object AimiSmbTrainer {
             if (cols.size > headers.size) continue
 
             val raw = SmbRefinementFeatureSchema.parseTrainingFeatures(headers, cols) ?: continue
-            if (!SmbRefinementFeatureSchema.shouldUseCsvRowForTraining(headers, cols, raw, minLearningQuality)) continue
+            if (!SmbRefinementFeatureSchema.shouldUseCsvRowForTraining(headers, cols, raw, minLearningQuality, relaxedFilter)) continue
 
             // Approximate trendIndicator for offline training
             val trendIndicator = computeTrendIndicator(raw)
