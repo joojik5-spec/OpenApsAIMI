@@ -119,20 +119,20 @@ class AimiAssistantActivity : TranslatedDaggerAppCompatActivity() {
         }
 
         root.addView(section(getString(R.string.aimi_as_proposals)))
-        // One change at a time: after a change we wait 3 days, so the result can be seen.
+        // One change at a time: after a change we wait one day, so the result can be seen.
         val last = history.all().maxByOrNull { it.timeMs }
-        val waitMs = 3 * 24L * 3600_000L
+        val waitMs = 24L * 3600_000L
         if (last != null && now - last.timeMs < waitMs) {
-            val daysLeft = ((waitMs - (now - last.timeMs)) / (24L * 3600_000L)).toInt() + 1
+            val hoursLeft = ((waitMs - (now - last.timeMs)) / 3600_000L).toInt() + 1
             val name = AssistantCatalog.byKey(last.prefKey)?.englishName ?: last.prefKey
-            root.addView(text(getString(R.string.aimi_as_waiting, name, dateFormat.format(Date(last.timeMs)), daysLeft)))
+            root.addView(text(getString(R.string.aimi_as_waiting, name, dateFormat.format(Date(last.timeMs)), hoursLeft)))
         } else {
             val proposals = AssistantProposals.build(lows, late) { readValue(it) }
             if (proposals.isEmpty()) {
                 root.addView(text(getString(R.string.aimi_as_nothing)))
             } else {
                 root.addView(proposalCard(proposals.first()))
-                if (proposals.size > 1) root.addView(text(getString(R.string.aimi_as_more, proposals.size - 1)))
+                if (proposals.size > 1) root.addView(text(getString(R.string.aimi_as_more, proposals.drop(1).joinToString { it.setting.englishName })))
             }
         }
 
