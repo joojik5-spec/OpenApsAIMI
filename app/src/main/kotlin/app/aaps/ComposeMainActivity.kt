@@ -134,7 +134,7 @@ import app.aaps.core.ui.compose.preference.LocalHashPassword
 import app.aaps.core.ui.compose.preference.LocalVisibilityContext
 import app.aaps.core.ui.compose.preference.PreferenceSubScreenDef
 import app.aaps.plugins.aps.openAPSAIMI.orchestration.AimiLoopRuntimeGuard
-import app.aaps.plugins.aps.openAPSAIMI.advisor.assistant.AimiAssistantActivity
+import app.aaps.plugins.aps.openAPSAIMI.advisor.AimiProfileAdvisorActivity
 import app.aaps.plugins.aps.openAPSAIMI.advisor.auditor.ui.AuditorReportActivity
 import app.aaps.plugins.aps.openAPSAIMI.advisor.meal.MealAdvisorActivity
 import app.aaps.plugins.aps.openAPSAIMI.context.ui.ContextActivity
@@ -1363,7 +1363,7 @@ class ComposeMainActivity : AppCompatActivity() {
         withProtection(destination.protection) {
             try {
                 val activityClass = when (action) {
-                    DashboardV2ToolAction.ADVISOR        -> AimiAssistantActivity::class.java
+                    DashboardV2ToolAction.ADVISOR        -> AimiProfileAdvisorActivity::class.java
                     DashboardV2ToolAction.MEAL_ADVISOR   -> MealAdvisorActivity::class.java
                     DashboardV2ToolAction.AIMI_CONTEXT   -> ContextActivity::class.java
                     DashboardV2ToolAction.AUDITOR_REPORT -> AuditorReportActivity::class.java

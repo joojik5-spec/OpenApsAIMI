@@ -1217,7 +1217,7 @@
     <string name="aimi_as_stats">В диапазоне: %1$d%%. Ниже 3,9: %2$.1f%%. Среднее: %3$.1f ммоль/л. Эпизодов с низким сахаром: %4$d. Поздних реакций: %5$d.</string>
     <string name="aimi_as_low_line">Низкий %1$s: %2$.1f ммоль/л. Перед ним за 2 часа было %3$d SMB, в среднем раз в %4$.1f мин, IOB в начале %5$.1f Ед.</string>
     <string name="aimi_as_proposals">Что предлагаю изменить</string>
-    <string name="aimi_as_nothing">Сейчас нечего предложить. Настройки, которые менялись за последние 3 дня, повторно не предлагаются.</string>
+    <string name="aimi_as_nothing">Сейчас нечего предложить. После изменения помощник ждёт 3 дня.</string>
     <string name="aimi_as_settings">Настройки</string>
     <string name="aimi_as_apply">Применить</string>
     <string name="aimi_as_open_old">Открыть старый Advisor</string>
@@ -1237,4 +1237,6 @@
     <string name="aimi_as_reason_priority">Было %1$d эпизодов с низким сахаром (самый низкий %2$.1f ммоль/л). В приоритетных ситуациях AIMI добавляет IOB сверх твоего Max IOB. Меньшая добавка снижает пик IOB.</string>
     <string name="aimi_as_reason_red_carpet">Было %1$d эпизодов с низким сахаром. Когда защита урезает SMB, Red Carpet может вернуть полную дозу. Более низкий порог возвращает её реже.</string>
     <string name="aimi_as_reason_late">Сахар поднимался выше 8,0 ммоль/л, а первый SMB приходил поздно: %1$d раз, в среднем через %2$d мин. Низких сахаров за этот период не было. Больший Max SMB позволяет сделать первую дозу крупнее.</string>
+    <string name="aimi_as_waiting">Последнее изменение: %1$s (%2$s). Подожди результата, ещё примерно %3$d дн. Потом появится новое предложение. Так будет видно, какое изменение помогло.</string>
+    <string name="aimi_as_more">Ещё предложений в очереди: %1$d.</string>
 </resources>

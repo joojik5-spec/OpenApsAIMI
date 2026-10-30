@@ -119,10 +119,22 @@ class AimiAssistantActivity : TranslatedDaggerAppCompatActivity() {
         }
 
         root.addView(section(getString(R.string.aimi_as_proposals)))
-        val proposals = AssistantProposals.build(lows, late) { readValue(it) }
-            .filter { !history.changedRecently(it.setting.prefKey, now) }
-        if (proposals.isEmpty()) root.addView(text(getString(R.string.aimi_as_nothing)))
-        proposals.forEach { root.addView(proposalCard(it)) }
+        // One change at a time: after a change we wait 3 days, so the result can be seen.
+        val last = history.all().maxByOrNull { it.timeMs }
+        val waitMs = 3 * 24L * 3600_000L
+        if (last != null && now - last.timeMs < waitMs) {
+            val daysLeft = ((waitMs - (now - last.timeMs)) / (24L * 3600_000L)).toInt() + 1
+            val name = AssistantCatalog.byKey(last.prefKey)?.englishName ?: last.prefKey
+            root.addView(text(getString(R.string.aimi_as_waiting, name, dateFormat.format(Date(last.timeMs)), daysLeft)))
+        } else {
+            val proposals = AssistantProposals.build(lows, late) { readValue(it) }
+            if (proposals.isEmpty()) {
+                root.addView(text(getString(R.string.aimi_as_nothing)))
+            } else {
+                root.addView(proposalCard(proposals.first()))
+                if (proposals.size > 1) root.addView(text(getString(R.string.aimi_as_more, proposals.size - 1)))
+            }
+        }
 
         root.addView(section(getString(R.string.aimi_as_settings)))
         AssistantCatalog.all.forEach { root.addView(settingRow(it)) }

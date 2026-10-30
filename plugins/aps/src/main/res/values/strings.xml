@@ -1931,7 +1931,7 @@
     <string name="aimi_as_stats" comment="%1$d=TIR percent, %2$.1f=percent of time below 3.9 mmol/L, %3$.1f=mean glucose mmol/L, %4$d=number of low episodes, %5$d=number of late reaction episodes">In range: %1$d%%. Below 3.9: %2$.1f%%. Mean: %3$.1f mmol/L. Low episodes: %4$d. Late reactions: %5$d.</string>
     <string name="aimi_as_low_line" comment="%1$s=date and time, %2$.1f=lowest glucose mmol/L, %3$d=SMB count in the 2 hours before, %4$.1f=average minutes between SMB, %5$.1f=IOB at the start">Low %1$s: %2$.1f mmol/L. Before it, %3$d SMB in 2 hours, every %4$.1f min, IOB at start %5$.1f U.</string>
     <string name="aimi_as_proposals">Proposed changes</string>
-    <string name="aimi_as_nothing">No changes to propose now. Settings changed in the last 3 days are not proposed again.</string>
+    <string name="aimi_as_nothing">No changes to propose now. After a change, the assistant waits 3 days.</string>
     <string name="aimi_as_settings">Settings</string>
     <string name="aimi_as_apply">Apply</string>
     <string name="aimi_as_history_icon">!</string>
@@ -1952,4 +1952,6 @@
     <string name="aimi_as_reason_priority" comment="%1$d=number of lows, %2$.1f=lowest glucose">There were %1$d lows (the lowest %2$.1f mmol/L). In priority situations AIMI adds extra IOB above your Max IOB. A smaller extra value lowers the peak IOB.</string>
     <string name="aimi_as_reason_red_carpet" comment="%1$d=number of lows">There were %1$d lows. When safety cuts an SMB, Red Carpet can give the full dose back. A lower threshold gives it back less often.</string>
     <string name="aimi_as_reason_late" comment="%1$d=number of late episodes, %2$d=average delay minutes">Glucose went above 8.0 mmol/L and the first SMB came late %1$d times, on average after %2$d min. There were no lows in this period. A higher Max SMB lets the first dose be larger.</string>
+    <string name="aimi_as_waiting" comment="%1$s=setting name, %2$s=date of the last change, %3$d=days left to wait">The last change was %1$s (%2$s). Wait for its result, about %3$d more days. Then a new proposal appears. This way you can see which change helped.</string>
+    <string name="aimi_as_more" comment="%1$d=number of other proposals waiting">%1$d more proposals are waiting for their turn.</string>
 </resources>
