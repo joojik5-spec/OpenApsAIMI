@@ -71,7 +71,7 @@ fun DashboardOverviewHost(
                 .clickable { context.startActivity(Intent(context, AimiAssistantActivity::class.java)) },
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = "AI", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(text = "SA", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

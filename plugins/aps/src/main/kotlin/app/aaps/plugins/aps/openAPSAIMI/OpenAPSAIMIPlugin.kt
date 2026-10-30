@@ -2062,6 +2062,7 @@ open class OpenAPSAIMIPlugin  @Inject constructor(
             )
         )
         add(aimiComposeLabSubScreen())
+        add(ApsIntentKey.AimiAssistant)
     }
 
     private fun aimiComposeHormonitorViewerItem(): PreferenceItem =

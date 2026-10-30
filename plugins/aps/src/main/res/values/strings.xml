@@ -1924,7 +1924,7 @@
     <string name="aimi_adv_train_q_out_too_few">too few rows</string>
     <string name="aimi_adv_train_q_out_rejected">model rejected by the quality check</string>
     <string name="aimi_adv_train_q_out_other">model not trained</string>
-    <string name="aimi_as_title">AIMI Assistant</string>
+    <string name="aimi_as_title">AIMI Settings Assistant</string>
     <string name="aimi_as_loading">Reading the AIMI log. Please wait.</string>
     <string name="aimi_as_overview">Last 3 days</string>
     <string name="aimi_as_no_data">Not enough data in the AIMI log yet.</string>
@@ -1981,4 +1981,6 @@
     <string name="aimi_as_ph_apply">Apply</string>
     <string name="aimi_as_ph_saved">Saved. The loop uses the new values from the next run.</string>
     <string name="aimi_as_ph_invalid">Enter the first value from 5 to 60 and the second from 1 to 30.</string>
+    <string name="aimi_as_entry_title">AIMI Settings Assistant</string>
+    <string name="aimi_as_entry_summary">Reads your AIMI decision log, finds lows and late first SMB, explains the cause and proposes one setting change at a time. Nothing changes until you confirm.</string>
 </resources>
