@@ -229,6 +229,21 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      # The Gradle toolchain needs JetBrains Runtime 21. The foojay download API can fail,
+      # so install JBR with SDKMAN and register it as a known Java installation.
+      - name: Install JetBrains Runtime 21 for Gradle toolchain
+        run: |
+          curl -s "https://get.sdkman.io" | bash
+          source "$HOME/.sdkman/bin/sdkman-init.sh"
+          JBR_VER=$(sdk list java | grep -oE '21\.[0-9.+]+-jbr' | sort -V | tail -1)
+          echo "Using SDKMAN Java identifier: $JBR_VER"
+          test -n "$JBR_VER" || { echo "No JBR 21 found via SDKMAN" >&2; exit 1; }
+          sdk install java "$JBR_VER"
+          JBR_HOME="$HOME/.sdkman/candidates/java/$JBR_VER"
+          "$JBR_HOME/bin/java" -version
+          mkdir -p "$HOME/.gradle"
+          echo "org.gradle.java.installations.paths=$JBR_HOME" >> "$HOME/.gradle/gradle.properties"
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
