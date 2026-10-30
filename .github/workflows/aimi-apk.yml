@@ -1,0 +1,64 @@
+name: AIMI APK (signed)
+
+on:
+  push:
+    branches:
+      - feature/smb-quality-threshold
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_APK_PATH: app/build/outputs/apk/full/release/app-full-release.apk
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v5
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Install JetBrains Runtime 21 for Gradle toolchain
+        run: |
+          curl -s "https://get.sdkman.io" | bash
+          source "$HOME/.sdkman/bin/sdkman-init.sh"
+          JBR_VER=$(sdk list java | grep -oE '21\.[0-9.+]+-jbr' | sort -V | tail -1)
+          test -n "$JBR_VER" || { echo "No JBR 21 found via SDKMAN" >&2; exit 1; }
+          sdk install java "$JBR_VER"
+          JBR_HOME="$HOME/.sdkman/candidates/java/$JBR_VER"
+          mkdir -p "$HOME/.gradle"
+          echo "org.gradle.java.installations.paths=$JBR_HOME" >> "$HOME/.gradle/gradle.properties"
+
+      - name: Decode keystore
+        run: echo "$KEYSTORE_BASE64" | base64 -d > monkeystore.jks
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Grant execute permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Build app (release, signed)
+        run: ./gradlew :app:assembleFullRelease --no-daemon > build.log 2>&1 || (grep -E "^e: |FAILED|error:" build.log | head -60; exit 1)
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/monkeystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMI-app-full-release
+          path: ${{ env.APP_APK_PATH }}
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
