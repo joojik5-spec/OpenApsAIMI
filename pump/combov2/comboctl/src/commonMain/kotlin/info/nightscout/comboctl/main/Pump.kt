@@ -971,8 +971,9 @@ class Pump(
                 }
                 if (connectionAttemptNr < actualMaxNumAttempts) {
                     logger(LogLevel.DEBUG) { "Got exception while connecting; will try again; exception was: $e" }
-                    // Exponential backoff for retries (capped at ~30s)
-                    val backoffFactor = 1 shl (connectionAttemptNr.coerceAtMost(4))
+                    // Backoff for connect retries: 4 s, then 8 s at most (was up to 32 s).
+                    // The pump radio sleeps most of the time, so a shorter wait finds it sooner.
+                    val backoffFactor = 1 shl (connectionAttemptNr.coerceAtMost(2))
                     delay(DELAY_IN_MS_BETWEEN_COMMAND_DISPATCH_ATTEMPTS * backoffFactor)
                     continue
                 } else {
