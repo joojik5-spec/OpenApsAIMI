@@ -75,6 +75,12 @@ interface PersistenceLayer {
     suspend fun maintainDatabaseAtStartup()
 
     /**
+     * Writes where the database space goes to the log (tag AIMI_DB). Read only. The per-table sizes are
+     * written once per install, so a call at every start is cheap.
+     */
+    suspend fun logDatabaseSizeReport() {}
+
+    /**
      * Full VACUUM of the database: defragments the file and returns free pages to the OS.
      * Heavy and memory intensive — manual maintenance only; not used on automatic app startup.
      * May throw if the DB is busy/locked.

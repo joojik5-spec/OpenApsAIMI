@@ -176,6 +176,10 @@ class PersistenceLayerImpl @Inject constructor(
         repository.maintainDatabaseAtStartup()
     }
 
+    override suspend fun logDatabaseSizeReport() = withContext(Dispatchers.IO) {
+        repository.logDatabaseSizeReport()
+    }
+
     override suspend fun vacuumDatabase() = withContext(Dispatchers.IO) {
         repository.vacuumDatabase()
     }

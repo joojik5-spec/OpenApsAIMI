@@ -319,6 +319,13 @@ open class OpenAPSAIMIPlugin  @Inject constructor(
         }
         aimiPluginIoScope.launch {
             try {
+                persistenceLayer.logDatabaseSizeReport()
+            } catch (e: Exception) {
+                aapsLogger.error(LTag.APS, "Database size report failed", e)
+            }
+        }
+        aimiPluginIoScope.launch {
+            try {
                 var count = 0
                 val apsResults =
                     persistenceLayer.getApsResults(dateUtil.now() - T.days(1).msecs(), dateUtil.now())

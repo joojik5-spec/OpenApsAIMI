@@ -272,7 +272,7 @@ class AppRepository @Inject internal constructor(
      * per-table sizes (dbstat reads the whole file) only once, marked by a small file next to the database.
      * It only reads, so a failure here is ignored.
      */
-    private suspend fun logDatabaseSizeReport() {
+    suspend fun logDatabaseSizeReport() {
         try {
             database.useWriterConnection { connection ->
                 suspend fun number(sql: String): Long =
