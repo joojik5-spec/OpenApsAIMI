@@ -1,6 +1,5 @@
 package app.aaps.plugins.main.general.dashboard.glass
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,11 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -56,7 +50,6 @@ import app.aaps.plugins.main.R
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
-import app.aaps.core.ui.R as CoreUiR
 
 // Only ever called for GlassPillLocation.BOTTOM_ROW entries (see the bottom-row filter below), but the
 // `when` must still cover every GlassPillId since top-grid IDs share the same enum.
@@ -185,19 +178,11 @@ internal fun StatusAgoraCard(
                     )
                 }
 
-                // CENTER: glucose, inside today's TIR ring
+                // CENTER: big glucose value (the daily numbers are in the dashboard row below)
                 Box(
-                    modifier = Modifier
-                        .weight(1.3f)
-                        .offset(y = TIR_RING_LIFT)
-                        .size(TIR_RING_SIZE),
+                    modifier = Modifier.weight(1.3f),
                     contentAlignment = Alignment.Center
                 ) {
-                    TirRing(
-                        tir = state.tir,
-                        trackColor = (if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)).copy(alpha = 0.18f),
-                        modifier = Modifier.matchParentSize()
-                    )
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
@@ -205,12 +190,14 @@ internal fun StatusAgoraCard(
                         // An old value stays visible, greyed and struck through, like the classic overview.
                         Text(
                             text = state.currentBg,
-                            fontSize = 34.sp,
+                            fontSize = GLUCOSE_FONT_SIZE,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (glucoseStale) neutralColor else Color(state.glucoseColor),
+                            color = if (glucoseStale) neutralColor else if (isDark) Color.White else Color(0xFF0F172A),
                             textDecoration = if (glucoseStale) TextDecoration.LineThrough else null,
-                            letterSpacing = (-1.2).sp,
-                            lineHeight = 34.sp,
+                            letterSpacing = (-2).sp,
+                            lineHeight = GLUCOSE_FONT_SIZE,
+                            maxLines = 1,
+                            softWrap = false,
                             modifier = Modifier.clickable { onOpenLoop() }
                         )
                         Text(
@@ -247,11 +234,6 @@ internal fun StatusAgoraCard(
                             fontSize = 8.5.sp,
                             fontWeight = FontWeight.Medium,
                             color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-                        )
-                        TirTrendText(
-                            tir = state.tir,
-                            neutralColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                            modifier = Modifier.padding(top = 1.dp)
                         )
                     }
                 }
@@ -359,6 +341,8 @@ internal fun StatusAgoraCard(
                 CgmLinkBannerText(banner)
             }
 
+            DailyDashboard(state = state, isDark = isDark)
+
             val bottomRowPills = GLASS_PILL_CATALOG.filter { it.location == GlassPillLocation.BOTTOM_ROW && it.id in selectedPills }
             if (bottomRowPills.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -393,86 +377,56 @@ internal fun StatusAgoraCard(
 }
 
 /**
- * Thin ring with today's time-in-range split: in range (green) from 12 o'clock, then high (amber),
- * then low (red), clockwise. A small gap separates the parts. Without data ([tir] null) only the empty
- * track is drawn.
+ * Row of the daily numbers that matter: time in range today (with the change against yesterday), time low and
+ * high, average glucose, variability (CV) and the estimated A1c. All values come from the dashboard state.
  */
 @Composable
-private fun TirRing(tir: GlassTir?, trackColor: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val strokePx = TIR_RING_STROKE.toPx()
-        val diameter = size.minDimension - strokePx
-        if (diameter <= 0f) return@Canvas
-        val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
-        val arcSize = Size(diameter, diameter)
-        drawArc(
-            color = trackColor,
-            startAngle = 0f,
-            sweepAngle = 360f,
-            useCenter = false,
-            topLeft = topLeft,
-            size = arcSize,
-            style = Stroke(width = strokePx)
-        )
-        if (tir == null) return@Canvas
-        val parts = listOf(
-            tir.inRangePct to GlassColors.emerald,
-            tir.abovePct to GlassColors.amber,
-            tir.belowPct to GlassColors.red,
-        ).filter { it.first > 0f }
-        val total = parts.sumOf { it.first.toDouble() }.toFloat()
-        if (total <= 0f) return@Canvas
-        val gap = if (parts.size > 1) TIR_RING_GAP_DEG else 0f
-        var start = -90f
-        for ((pct, color) in parts) {
-            val sweep = pct / total * 360f
-            // A few minutes low must stay visible: never draw a part thinner than the minimum.
-            drawArc(
-                color = color,
-                startAngle = start + gap / 2f,
-                sweepAngle = (sweep - gap).coerceAtLeast(TIR_RING_MIN_PART_DEG),
-                useCenter = false,
-                topLeft = topLeft,
-                size = arcSize,
-                style = Stroke(width = strokePx, cap = StrokeCap.Butt)
-            )
-            start += sweep
-        }
-    }
-}
-
-/** "TIR 78% ↑6" under the glucose: green when better than yesterday, amber when worse. */
-@Composable
-private fun TirTrendText(tir: GlassTir?, neutralColor: Color, modifier: Modifier = Modifier) {
+private fun DailyDashboard(state: GlassUiState, isDark: Boolean) {
+    val neutral = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+    val tir = state.tir
     val delta = tir?.deltaVsYesterday
-    val percent = tir?.let { stringResource(CoreUiR.string.format_percent, it.inRangePct.roundToInt()) }
-    val text = when {
-        percent == null             -> stringResource(R.string.dashboard_glass_tir_empty)
-        delta == null || delta == 0 -> stringResource(R.string.dashboard_glass_tir_value, percent)
-        delta > 0                   -> stringResource(R.string.dashboard_glass_tir_up, percent, delta)
-        else                        -> stringResource(R.string.dashboard_glass_tir_down, percent, abs(delta))
+    val tirSub = when {
+        delta == null || delta == 0 -> ""
+        delta > 0                   -> "↑$delta"
+        else                        -> "↓${abs(delta)}"
     }
-    val color = when {
-        delta == null || delta == 0 -> neutralColor
-        delta > 0                   -> GlassColors.emerald
-        else                        -> GlassColors.amber
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        DashboardTile("TIR", tir?.let { "${it.inRangePct.roundToInt()}%" } ?: "--", tirSub, GlassColors.emerald, neutral, Modifier.weight(1f))
+        DashboardTile("Low", tir?.let { "${it.belowPct.roundToInt()}%" } ?: "--", "", GlassColors.red, neutral, Modifier.weight(1f))
+        DashboardTile("High", tir?.let { "${it.abovePct.roundToInt()}%" } ?: "--", "", GlassColors.amber, neutral, Modifier.weight(1f))
+        DashboardTile("Avg", state.avgBgText, "", if (isDark) Color.White else Color(0xFF0F172A), neutral, Modifier.weight(1f))
+        DashboardTile("CV", state.cvText, "", if (isDark) Color.White else Color(0xFF0F172A), neutral, Modifier.weight(1f))
+        DashboardTile("eA1c", state.gmiText, "", if (isDark) Color.White else Color(0xFF0F172A), neutral, Modifier.weight(1f))
     }
-    Text(
-        text = text,
-        fontSize = 8.5.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = color,
-        modifier = modifier
-    )
 }
 
-/** Fixed ring size: the glucose block is laid out to fit inside it, so the card height stays small. */
-private val TIR_RING_SIZE = 130.dp
-/** Moves the ring a little up, into the card top padding, without making the card taller. */
-private val TIR_RING_LIFT = (-6).dp
-private val TIR_RING_STROKE = 5.dp
-private const val TIR_RING_GAP_DEG = 3f
-private const val TIR_RING_MIN_PART_DEG = 2f
+@Composable
+private fun DashboardTile(label: String, value: String, sub: String, valueColor: Color, labelColor: Color, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = valueColor,
+            maxLines = 1,
+            softWrap = false
+        )
+        Text(
+            text = if (sub.isEmpty()) label else "$label $sub",
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium,
+            color = labelColor,
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
+
+/** Size of the main glucose number. */
+private val GLUCOSE_FONT_SIZE = 64.sp
 
 /** "Reconnecting… · last value 14 min ago", in the attention colour of the other dashboard skins. */
 @Composable

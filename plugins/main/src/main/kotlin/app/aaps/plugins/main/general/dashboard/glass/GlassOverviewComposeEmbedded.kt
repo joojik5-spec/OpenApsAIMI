@@ -54,6 +54,7 @@ import app.aaps.plugins.main.general.dashboard.DashboardV2ToolAction
 import app.aaps.plugins.main.general.dashboard.DashboardV2ToolsScreen
 import app.aaps.plugins.main.general.dashboard.viewmodel.OverviewViewModel
 import app.aaps.plugins.main.general.dashboard.viewmodel.StatusCardState
+import java.util.Locale
 import kotlin.math.roundToInt
 import app.aaps.ui.compose.overview.graphs.ChartConfig
 import app.aaps.ui.compose.overview.graphs.GraphViewModel
@@ -517,7 +518,16 @@ internal fun buildGlassUiState(
         warmup = status.warmup,
         isGlucoseActual = status.isGlucoseActual,
         glucoseTimestampMs = status.glucoseTimestampMs,
+        avgBgText = formatAverageGlucose(status.avgBgMgdl, status.unitText),
+        cvText = status.bgCv?.let { "${it.roundToInt()}%" } ?: "--",
+        gmiText = status.a1c?.let { String.format(Locale.US, "%.1f%%", it) } ?: "--",
     )
+}
+
+/** Average glucose in the unit shown on the screen; mmol/L with one decimal, mg/dL as a whole number. */
+private fun formatAverageGlucose(avgMgdl: Double?, unit: String): String {
+    if (avgMgdl == null) return "--"
+    return if (unit.contains("mmol", ignoreCase = true)) String.format(Locale.US, "%.1f", avgMgdl / 18.0182) else avgMgdl.roundToInt().toString()
 }
 
 /** Reuses the TIR-of-day already computed by the dashboard ViewModel: no extra DB read here. */

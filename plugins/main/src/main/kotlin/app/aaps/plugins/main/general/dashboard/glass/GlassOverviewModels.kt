@@ -41,6 +41,10 @@ data class GlassUiState(
     val isGlucoseActual: Boolean = true,
     /** Time of the shown glucose, to keep "last value N min ago" moving between refreshes. */
     val glucoseTimestampMs: Long? = null,
+    /** Daily numbers for the dashboard row under the glucose. */
+    val avgBgText: String = "--",
+    val cvText: String = "--",
+    val gmiText: String = "--",
 )
 
 /**
