@@ -16124,6 +16124,12 @@ class DetermineBasalaimiSMB2 @Inject constructor(
                 reason?.appendLine(
                     context.getString(R.string.reason_safety_sport_meal_reduction, before, smbToGive)
                 )
+            } else if (isSportSafetyOnlyFromSteps() && smbToGive > 0f && bg >= targetBg + 25.0 && shortAvgDelta >= 3.0f) {
+                // Only the step counter says "sport" (nothing was started by the user) and glucose is clearly rising:
+                // give half of the SMB instead of none. Measured 2026-10-31: 40 minutes at zero while glucose went from 5.5 to 9.2.
+                val before = smbToGive
+                smbToGive = before * 0.5f
+                reason?.appendLine(context.getString(R.string.reason_safety_sport_rise_softened, before, smbToGive))
             } else {
                 // Sport is a vital safety, not a minor one, so Red Carpet must not put this back.
                 // Without this flag the zero below counted as a minor cut: measured 2026-08-18, the
@@ -16945,6 +16951,9 @@ class DetermineBasalaimiSMB2 @Inject constructor(
             context.longAvgDelta < 0 &&
             context.shortAvgDelta < 0 &&
             (context.bg < context.targetBg || context.delta < -2.0)
+
+    /** True when the sport guard is on only because of the step counts: no manual sport and no activity context. */
+    private fun isSportSafetyOnlyFromSteps(): Boolean = !sportTime && !aimiContextActivityActive
 
     private fun isSportSafetyCondition(): Boolean {
         // Unknown steps read as 0 here, as they always did: this check only makes dosing more careful.

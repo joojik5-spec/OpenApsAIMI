@@ -1171,6 +1171,7 @@
     <string name="reason_hypo_guard">🛑 Hypo protection + safety margin: minBG=%1$s ≤ Threshold=%2$s (BG=%3$s, predicted=%4$s, eventual=%5$s) → SMB=0</string>
     <string name="reason_tail_damping">Tail-aware damping: %1$.2fU → %2$.2fU (tail %3$.0f%%)</string>
     <string name="reason_meal_aggression_boost">🍽️ Meal weighting: %1$.2fU → %2$.2fU (x%3$.2f)</string>
+    <string name="reason_safety_sport_rise_softened">🏃‍♂️ Sport safety (steps only) softened while glucose rises: %1$.2fU → %2$.2fU</string>
     <string name="reason_safety_sport_meal_reduction">🏃‍♂️ Sport safety softened by meal: %1$.2fU → %2$.2fU</string>
     <string name="reason_meal_tail_bypass">🍽️ Meal context bypassed PK/PD damping (+%1$.0f mg/dL predicted)</string>
     <string name="reason_ai_file">🧠 A.I. file: %1$s Prediction : %2$s U</string>
