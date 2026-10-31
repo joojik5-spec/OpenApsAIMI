@@ -70,10 +70,14 @@ class AimiInsightActivity : TranslatedDaggerAppCompatActivity() {
         super.onResume()
         liveJob = lifecycleScope.launch {
             while (isActive) {
-                val cycle = withContext(Dispatchers.IO) { AssistantLive.readTail(aimiStorageHelper.getAimiFile(LOG_FILE), 1).lastOrNull() }
-                if (cycle != null && cycle.timeMs != liveCycle?.timeMs) {
-                    liveCycle = cycle
-                    if (result != null) render()
+                try {
+                    val cycle = withContext(Dispatchers.IO) { AssistantLive.readTail(aimiStorageHelper.getAimiFile(LOG_FILE), 1).lastOrNull() }
+                    if (cycle != null && cycle.timeMs != liveCycle?.timeMs) {
+                        liveCycle = cycle
+                        if (result != null) render()
+                    }
+                } catch (_: Throwable) {
+                    // The live view is optional: ignore a failed refresh.
                 }
                 delay(60_000L)
             }
@@ -89,20 +93,36 @@ class AimiInsightActivity : TranslatedDaggerAppCompatActivity() {
         render(loading = true)
         lifecycleScope.launch {
             val now = System.currentTimeMillis()
-            val data = withContext(Dispatchers.IO) {
-                val cycles = AssistantLive.readHours(aimiStorageHelper.getAimiFile(LOG_FILE), now, hours)
-                liveCycle = cycles.lastOrNull()
-                statsBefore = AssistantAnalyzer.stats(
-                    cycles.filter { !it.bgMgdl.isNaN() }.map { AssistantSample(it.timeMs, it.bgMgdl, it.iobU, it.decision == "SMB_Delivery") },
-                    now - 3 * 24L * 3600_000L, now,
-                )
-                AssistantInsightEngine.analyze(cycles, hours) { key, isBool -> readValue(key, isBool) }
+            try {
+                val data = withContext(Dispatchers.IO) {
+                    val cycles = AssistantLive.readHours(aimiStorageHelper.getAimiFile(LOG_FILE), now, hours)
+                    liveCycle = cycles.lastOrNull()
+                    statsBefore = AssistantAnalyzer.stats(
+                        cycles.filter { !it.bgMgdl.isNaN() }.map { AssistantSample(it.timeMs, it.bgMgdl, it.iobU, it.decision == "SMB_Delivery") },
+                        now - 3 * 24L * 3600_000L, now,
+                    )
+                    AssistantInsightEngine.analyze(cycles, hours) { key, isBool -> readValue(key, isBool) }
+                }
+                result = data
+                checked.clear()
+                data.bundles.flatMap { it.changes }.forEach { checked[it.prefKey] = true }
+                render()
+            } catch (e: Throwable) {
+                showError(e)
             }
-            result = data
-            checked.clear()
-            data.bundles.flatMap { it.changes }.forEach { checked[it.prefKey] = true }
-            render()
         }
+    }
+
+    /** Shows the error on the screen, so a failure never closes the app. */
+    private fun showError(e: Throwable) {
+        root.removeAllViews()
+        root.addView(text("AIMI Insight", 22f, bold = true))
+        root.addView(text("Не удалось разобрать журнал: ${e.javaClass.simpleName}: ${e.message}", 14f))
+        root.addView(text(e.stackTrace.take(8).joinToString("\n"), 11f))
+        root.addView(Button(this).apply {
+            text = "Повторить за 24 ч"
+            setOnClickListener { hours = 24; load() }
+        })
     }
 
     // ---- preference access ----
