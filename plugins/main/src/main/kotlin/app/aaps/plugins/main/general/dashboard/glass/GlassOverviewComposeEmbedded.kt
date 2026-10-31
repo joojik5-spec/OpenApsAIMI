@@ -46,6 +46,7 @@ import app.aaps.core.keys.StringKey
 import app.aaps.core.keys.StringNonKey
 import app.aaps.core.ui.UiMode
 import app.aaps.core.ui.compose.AapsTheme
+import app.aaps.core.ui.compose.PumpInfoState
 import app.aaps.core.ui.compose.LocalPreferences
 import app.aaps.core.ui.compose.StatusLevel
 import app.aaps.plugins.main.R
@@ -138,6 +139,8 @@ internal fun GlassOverviewComposeEmbedded(
             )
         }
 
+        // The pump line is shown in a popup when the Pump button of the bottom bar is held.
+        LaunchedEffect(chartState.pumpStatusText) { PumpInfoState.update(chartState.pumpStatusText) }
         val deviationBars = remember(deviationsData, chartState) {
             buildDeviationBars(
                 deviations = deviationsData.deviations,
@@ -240,9 +243,6 @@ internal fun GlassOverviewComposeEmbedded(
                         )
                     },
                 )
-                if (chartState.pumpStatusText.isNotBlank()) {
-                    PumpStatusNotification(status = chartState.pumpStatusText, isDark = isDark)
-                }
                 if (embeddedState.notifications.isNotEmpty()) {
                     NotificationsSection(
                         notifications = embeddedState.notifications,

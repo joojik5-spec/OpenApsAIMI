@@ -3,6 +3,30 @@
 package app.aaps.ui.compose.main
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import app.aaps.core.ui.compose.htmlToAnnotatedString
+import app.aaps.core.ui.compose.PumpInfoState
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -92,6 +116,11 @@ fun GlassNavigationBar(
     )
     val edgeColor = if (isDark) Color(0x33FFFFFF) else Color(0x33000000)
 
+    val pumpInfo by PumpInfoState.html.collectAsState()
+    var showPumpInfo by remember { mutableStateOf(false) }
+    // A long press on the Pump button shows the pump line; the release must not also open the pump screen.
+    var longPressHandled by remember { mutableStateOf(false) }
+
     NavigationBar(
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -115,9 +144,22 @@ fun GlassNavigationBar(
                         GlassNavigationTab.BOLUS        -> onNavigate(NavigationRequest.Element(ElementType.BOLUS_WIZARD))
                         // Opens the active pump plugin's own status screen (same path as the Manage sheet's
                         // Pump entry) — not GlassPumpDetailScreen's reservoir/battery summary.
-                        GlassNavigationTab.PUMP         -> onNavigate(NavigationRequest.Element(ElementType.PUMP))
+                        GlassNavigationTab.PUMP         -> {
+                            if (longPressHandled) longPressHandled = false
+                            else onNavigate(NavigationRequest.Element(ElementType.PUMP))
+                        }
                     }
                 },
+                modifier = if (tab == GlassNavigationTab.PUMP) {
+                    Modifier.pointerInput(pumpInfo) {
+                        detectTapGestures(onLongPress = {
+                            if (pumpInfo.isNotBlank()) {
+                                longPressHandled = true
+                                showPumpInfo = true
+                            }
+                        })
+                    }
+                } else Modifier,
                 icon = {
                     Icon(
                         imageVector = tab.icon(),
@@ -167,6 +209,10 @@ fun GlassNavigationBar(
             )
         }
     }
+
+    if (showPumpInfo && pumpInfo.isNotBlank()) {
+        PumpInfoPopup(html = pumpInfo, isDark = isDark, onDismiss = { showPumpInfo = false })
+    }
 }
 
 private fun GlassNavigationTab.icon(): ImageVector =
@@ -188,3 +234,46 @@ private fun GlassNavigationTab.labelRes(): Int =
         GlassNavigationTab.SCENARIOS  -> CoreUiR.string.scenes
         GlassNavigationTab.MANAGEMENT -> CoreUiR.string.manage
     }
+
+/** The pump line as glass capsules above the bottom bar. Tap anywhere to close. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PumpInfoPopup(html: String, isDark: Boolean, onDismiss: () -> Unit) {
+    val density = LocalDensity.current
+    val lift = with(density) { (NAV_BAR_HEIGHT + 10.dp).roundToPx() }
+    val parts = html.split("|").map { it.trim() }.filter { it.isNotEmpty() }
+    Popup(
+        alignment = Alignment.BottomCenter,
+        offset = IntOffset(0, -lift),
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true)
+    ) {
+        FlowRow(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            parts.forEach { part ->
+                val shape = RoundedCornerShape(50)
+                Text(
+                    text = part.replace(Regex("(?i)^\\s*(<[^>]*>)*\\s*Pump:"), "$1").htmlToAnnotatedString(),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .shadow(6.dp, shape)
+                        .clip(shape)
+                        .background(
+                            if (isDark) Brush.verticalGradient(listOf(Color(0xFF1B2A4A), Color(0xFF0E1A2E)))
+                            else Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFE8EEF8)))
+                        )
+                        .border(1.dp, if (isDark) Color(0x55FFFFFF) else Color(0xCCCBD5E1), shape)
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .clickable { onDismiss() }
+                )
+            }
+        }
+    }
+}

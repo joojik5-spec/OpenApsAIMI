@@ -53,36 +53,31 @@ internal fun GlassCombinedChartCard(
     val muted = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
     GlassContainer(isDark = isDark, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().pointerInput(Unit) { detectPinch(onPinch) }) {
+            // One slim line: Stats, the layer switches and the hour selector.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 12.dp, top = 12.dp),
+                    .padding(start = 12.dp, end = 10.dp, top = 8.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = statsLabel,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = muted,
                     maxLines = 1,
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
                         .clickable { onOpenStats() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .padding(horizontal = 6.dp, vertical = 5.dp)
                 )
+                LayerChip(label = "IOB", selected = showIob, isDark = isDark, onClick = onToggleIob)
+                LayerChip(label = "Bal", selected = showBalance, isDark = isDark, onClick = onToggleBalance)
+                Spacer(modifier = Modifier.weight(1f))
                 HourSegment(selectedHours = selectedHours, onSelectHours = onSelectHours, isDark = isDark)
             }
             bgChart()
-            // Layers: which lower panels are shown. More than one can be on.
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                LayerChip(label = "IOB", selected = showIob, isDark = isDark, onClick = onToggleIob)
-                LayerChip(label = "Balance", selected = showBalance, isDark = isDark, onClick = onToggleBalance)
-            }
             if (showIob) {
                 Box(
                     modifier = Modifier
@@ -115,8 +110,8 @@ private fun HourSegment(selectedHours: Int, onSelectHours: (Int) -> Unit, isDark
         modifier = Modifier
             .clip(shape)
             .background(if (isDark) Color(0x1FFFFFFF) else Color(0x14000000))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(1.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         listOf(6, 12, 18, 24).forEach { hours ->
@@ -129,8 +124,8 @@ private fun HourSegment(selectedHours: Int, onSelectHours: (Int) -> Unit, isDark
                         else Modifier
                     )
                     .clickable { onSelectHours(hours) }
-                    .width(38.dp)
-                    .height(26.dp),
+                    .width(32.dp)
+                    .height(24.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -170,7 +165,7 @@ private fun LayerChip(label: String, selected: Boolean, isDark: Boolean, onClick
                 else Modifier.background(if (isDark) Color(0x1FFFFFFF) else Color(0x14000000), shape)
             )
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 5.dp)
+            .padding(horizontal = 9.dp, vertical = 4.dp)
     )
 }
 
