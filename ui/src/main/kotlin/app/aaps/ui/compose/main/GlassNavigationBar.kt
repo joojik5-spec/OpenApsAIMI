@@ -2,7 +2,9 @@
 
 package app.aaps.ui.compose.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fastfood
@@ -19,10 +21,16 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.aaps.core.interfaces.navigation.ElementType
 import app.aaps.core.ui.compose.AapsTheme
 import app.aaps.core.ui.compose.icons.IcAutomation
@@ -49,7 +57,8 @@ internal val MASTER_ONLY_TABS = setOf(GlassNavigationTab.TREATMENTS, GlassNaviga
 // Smaller than NavigationBarItem's 24dp default — 6 fixed tabs (7 when the loop-accept item shows) is above
 // Material's recommended max of 5, so a slightly smaller icon (paired with labelSmall text below) keeps the
 // bar from feeling cramped.
-private val NAV_ICON_SIZE = 20.dp
+private val NAV_ICON_SIZE = 22.dp
+private val NAV_BAR_HEIGHT = 72.dp
 
 @Composable
 fun GlassNavigationBar(
@@ -65,21 +74,32 @@ fun GlassNavigationBar(
     loopActionAvailable: Boolean = false,
     onLoopActionClick: () -> Unit = {},
 ) {
+    // Same look on every screen: a dark (or light) glass strip with a thin top edge, all items the same height,
+    // labels on one line.
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val muted = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
     val colors = NavigationBarItemDefaults.colors(
-        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        selectedTextColor = MaterialTheme.colorScheme.onSurface,
-        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        disabledIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-        disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+        selectedIconColor = Color(0xFF38BDF8),
+        selectedTextColor = Color(0xFF38BDF8),
+        indicatorColor = Color.Transparent,
+        unselectedIconColor = muted,
+        unselectedTextColor = muted,
+        disabledIconColor = muted.copy(alpha = 0.38f),
+        disabledTextColor = muted.copy(alpha = 0.38f),
     )
+    val stripBrush = Brush.verticalGradient(
+        if (isDark) listOf(Color(0xFF0E1A2E), Color(0xFF070E1B)) else listOf(Color(0xFFF8FAFC), Color(0xFFE8EEF8))
+    )
+    val edgeColor = if (isDark) Color(0x33FFFFFF) else Color(0x33000000)
 
     NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         windowInsets = WindowInsets(0),
-        modifier = modifier,
+        modifier = modifier
+            .background(stripBrush)
+            .drawBehind { drawLine(edgeColor, Offset(0f, 0f), Offset(size.width, 0f), strokeWidth = 2f) }
+            .height(NAV_BAR_HEIGHT),
     ) {
         GlassNavigationTab.fixedOrder.forEach { tab ->
             val enabled = masterOrPairedClient || tab !in MASTER_ONLY_TABS
@@ -105,7 +125,17 @@ fun GlassNavigationBar(
                         modifier = Modifier.size(NAV_ICON_SIZE),
                     )
                 },
-                label = { Text(text = stringResource(tab.labelRes()), style = MaterialTheme.typography.labelSmall) },
+                label = {
+                    Text(
+                        text = stringResource(tab.labelRes()),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Clip,
+                    )
+                },
+                alwaysShowLabel = true,
                 colors = colors,
             )
         }

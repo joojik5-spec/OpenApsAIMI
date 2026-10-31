@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +39,11 @@ import app.aaps.plugins.main.general.overview.notifications.NotificationStore
 // ==========================================
 // NOTIFICATION: PUMP STATUS (SMB, Temp Basal, etc.)
 // ==========================================
+/**
+ * The pump line ("Pump: Reservoir 98 U | Site 4 d | Sensor 9 d") shown as separate chips that wrap to the next
+ * row on a narrow screen, instead of one long text that breaks in the middle of a value.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PumpStatusNotification(
     status: String,
@@ -48,6 +55,11 @@ internal fun PumpStatusNotification(
     } else {
         Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xE4EEF2FA)))
     }
+    val parts = status.htmlToAnnotatedString().text
+        .split("|")
+        .map { it.trim().removePrefix("Pump:").trim() }
+        .filter { it.isNotEmpty() }
+    val styled = status.split("|").map { it.trim() }.filter { it.isNotEmpty() }
 
     Box(
         modifier = Modifier
@@ -59,13 +71,36 @@ internal fun PumpStatusNotification(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = status.htmlToAnnotatedString(),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
-            letterSpacing = 0.3.sp
-        )
+        if (parts.size < 2 || parts.size != styled.size) {
+            Text(
+                text = status.htmlToAnnotatedString(),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
+                letterSpacing = 0.3.sp
+            )
+        } else {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                styled.forEach { html ->
+                    val chipShape = RoundedCornerShape(50)
+                    Text(
+                        text = html.replace(Regex("(?i)^\\s*(<[^>]*>)*\\s*Pump:"), "$1").htmlToAnnotatedString(),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier
+                            .clip(chipShape)
+                            .background(if (isDark) Color(0x1FFFFFFF) else Color(0x14000000), chipShape)
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

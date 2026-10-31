@@ -449,7 +449,7 @@ fun MainScreen(
                                 .padding(bottom = scaffoldPadding.calculateBottomPadding())
                         ) {
                             val loopActionState = loopActionViewModel.uiState.collectAsStateWithLifecycle().value
-                            if (isGlassSkin) {
+                            if (ALWAYS_GLASS_NAV_BAR || isGlassSkin) {
                                 GlassNavigationBar(
                                     masterOrPairedClient = masterOrPairedClient,
                                     onTreatmentClick = {
@@ -662,3 +662,6 @@ fun MainScreen(
 
 private val PREVIEW_MODE_MIN_HEIGHT: Dp = 500.dp
 private const val AUTO_HIDE_DELAY_MS = 3000L
+
+/** The bottom bar looks the same on every screen and skin. */
+private const val ALWAYS_GLASS_NAV_BAR = true

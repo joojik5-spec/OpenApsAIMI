@@ -76,6 +76,9 @@ internal fun GlassOverviewComposeEmbedded(
     val statusLights by statusViewModel.uiState.collectAsStateWithLifecycle()
     val commands = LocalGlassHeroCommands.current
     var rangeHours by remember { mutableStateOf(6) }
+    // One finger position shared by the BG and IOB charts: touching either one moves both.
+    var scrubProgress by remember { mutableStateOf<Float?>(null) }
+    LaunchedEffect(rangeHours) { scrubProgress = null }
     var showTools by remember { mutableStateOf(false) }
     var showPersonalize by remember { mutableStateOf(false) }
     LaunchedEffect(showTools) { if (!showTools) showPersonalize = false }
@@ -154,6 +157,8 @@ internal fun GlassOverviewComposeEmbedded(
                     selectedPills = selectedPills,
                 )
                 BgChartCard(
+                    scrubProgress = scrubProgress,
+                    onScrub = { scrubProgress = it },
                     readings = chartState.bgReadings,
                     treatments = chartState.treatments,
                     timeRangeHours = chartState.rangeHours,
@@ -171,6 +176,8 @@ internal fun GlassOverviewComposeEmbedded(
                     isDark = isDark,
                 )
                 IobChartCard(
+                    scrubProgress = scrubProgress,
+                    onScrub = { scrubProgress = it },
                     iobReadings = chartState.iobReadings,
                     predictions = chartState.iobPredictions,
                     currentIob = chartState.currentIob,

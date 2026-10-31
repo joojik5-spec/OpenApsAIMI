@@ -62,13 +62,16 @@ internal fun BgChartCard(
     maxBasalRateUh: Float = 1f,
     formatValue: (Float) -> String,
     isDark: Boolean,
+    /** Shared position (0..1 along the history) of the finger on this or the IOB chart; null when not touched. */
+    scrubProgress: Float? = null,
+    onScrub: (Float?) -> Unit = {},
 ) {
-    var touchedReading by remember { mutableStateOf<BgReadingPoint?>(null) }
+    val touchedReading: BgReadingPoint? = scrubProgress?.let { p -> readings.minByOrNull { abs(it.progress - p) } }
     var selectedTreatment by remember { mutableStateOf<TreatmentPoint?>(null) }
 
     // When new data arrives, reset the drag back to the current reading
     LaunchedEffect(readings) {
-        touchedReading = null
+        onScrub(null)
         selectedTreatment = null
     }
 
@@ -154,7 +157,7 @@ internal fun BgChartCard(
                         val chartH = size.height - 36f
                         val treatmentY = chartH - 8f
                         val p = (down.position.x / (chartW * historyFraction)).coerceIn(0f, 1f)
-                        touchedReading = readings.minByOrNull { abs(it.progress - p) }
+                        onScrub(p)
 
                         // Check if the touch landed near a treatment marker (X + Y)
                         val nearTreatment = treatments.minByOrNull { abs(it.progress - p) }
@@ -171,7 +174,7 @@ internal fun BgChartCard(
                             val event = awaitPointerEvent(pass = PointerEventPass.Main)
                             if (event.changes.any { it.pressed }) {
                                 val px = (event.changes.first().position.x / (chartW * historyFraction)).coerceIn(0f, 1f)
-                                touchedReading = readings.minByOrNull { abs(it.progress - px) }
+                                onScrub(px)
                                 event.changes.first().consume()
                             } else {
                                 break
@@ -188,6 +191,17 @@ internal fun BgChartCard(
 
                 fun historyX(progress: Float): Float = progress * chartW * historyFraction
                 fun predictionX(progress: Float): Float = (historyFraction + progress * (1f - historyFraction)) * chartW
+
+                // Shared finger position: the same vertical line is drawn on the BG and IOB charts.
+                scrubProgress?.let { p ->
+                    val x = historyX(p)
+                    drawLine(
+                        color = if (isDark) Color(0x99FFFFFF) else Color(0x99334155),
+                        start = Offset(x, 0f),
+                        end = Offset(x, chartH),
+                        strokeWidth = 2f
+                    )
+                }
 
                 val minY = axisMinValue
                 val maxY = maxOf(
@@ -508,13 +522,11 @@ internal fun IobChartCard(
     historyFraction: Float,
     isDark: Boolean,
     predictions: List<IobReadingPoint> = emptyList(),
+    /** Shared position (0..1 along the history) of the finger on this or the BG chart; null when not touched. */
+    scrubProgress: Float? = null,
+    onScrub: (Float?) -> Unit = {},
 ) {
-    var touchedIob by remember { mutableStateOf<IobReadingPoint?>(null) }
-
-    // When new data arrives, reset the drag back to the current reading
-    LaunchedEffect(iobReadings) {
-        touchedIob = null
-    }
+    val touchedIob: IobReadingPoint? = scrubProgress?.let { p -> iobReadings.minByOrNull { abs(it.progress - p) } }
 
     GlassContainer(
         isDark = isDark,
@@ -522,7 +534,7 @@ internal fun IobChartCard(
             .fillMaxWidth()
             .height(145.dp)
     ) {
-        Column(modifier = Modifier.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)) {
+        Column(modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -564,13 +576,13 @@ internal fun IobChartCard(
                         val down = awaitFirstDown()
                         val chartW = size.width - 65f
                         val p = (down.position.x / (chartW * historyFraction)).coerceIn(0f, 1f)
-                        touchedIob = iobReadings.minByOrNull { abs(it.progress - p) }
+                        onScrub(p)
 
                         while (true) {
                             val event = awaitPointerEvent(pass = PointerEventPass.Main)
                             if (event.changes.any { it.pressed }) {
                                 val px = (event.changes.first().position.x / (chartW * historyFraction)).coerceIn(0f, 1f)
-                                touchedIob = iobReadings.minByOrNull { abs(it.progress - px) }
+                                onScrub(px)
                                 event.changes.first().consume()
                             } else {
                                 break
@@ -587,6 +599,16 @@ internal fun IobChartCard(
 
                 fun historyX(progress: Float): Float = progress * chartW * historyFraction
                 fun predictionX(progress: Float): Float = (historyFraction + progress * (1f - historyFraction)) * chartW
+
+                scrubProgress?.let { p ->
+                    val x = historyX(p)
+                    drawLine(
+                        color = if (isDark) Color(0x99FFFFFF) else Color(0x99334155),
+                        start = Offset(x, 0f),
+                        end = Offset(x, chartH),
+                        strokeWidth = 2f
+                    )
+                }
 
                 val peakIob = maxOf(
                     iobReadings.maxByOrNull { it.iob }?.iob ?: 0f,
