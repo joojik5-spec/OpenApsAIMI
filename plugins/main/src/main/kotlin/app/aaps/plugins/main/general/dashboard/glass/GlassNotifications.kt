@@ -61,17 +61,17 @@ internal fun PumpStatusNotification(
         .filter { it.isNotEmpty() }
     val styled = status.split("|").map { it.trim() }.filter { it.isNotEmpty() }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(4.dp, shape)
-            .clip(shape)
-            .background(bgBrush)
-            .border(1.dp, if (isDark) Color(0x30FFFFFF) else Color(0xD0CBD5E1), shape)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        if (parts.size < 2 || parts.size != styled.size) {
+    if (parts.size < 2 || parts.size != styled.size) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(4.dp, shape)
+                .clip(shape)
+                .background(bgBrush)
+                .border(1.dp, if (isDark) Color(0x30FFFFFF) else Color(0xD0CBD5E1), shape)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
                 text = status.htmlToAnnotatedString(),
                 fontSize = 12.sp,
@@ -79,26 +79,33 @@ internal fun PumpStatusNotification(
                 color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
                 letterSpacing = 0.3.sp
             )
-        } else {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                styled.forEach { html ->
-                    val chipShape = RoundedCornerShape(50)
-                    Text(
-                        text = html.replace(Regex("(?i)^\\s*(<[^>]*>)*\\s*Pump:"), "$1").htmlToAnnotatedString(),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier
-                            .clip(chipShape)
-                            .background(if (isDark) Color(0x1FFFFFFF) else Color(0x14000000), chipShape)
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
-                }
+        }
+    } else {
+        // No big backing panel: every value is its own small glass capsule, like the round floating buttons.
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            styled.forEach { html ->
+                val chipShape = RoundedCornerShape(50)
+                Text(
+                    text = html.replace(Regex("(?i)^\\s*(<[^>]*>)*\\s*Pump:"), "$1").htmlToAnnotatedString(),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier
+                        .shadow(4.dp, chipShape)
+                        .clip(chipShape)
+                        .background(
+                            if (isDark) Brush.verticalGradient(listOf(Color(0x38FFFFFF), Color(0x14FFFFFF)))
+                            else Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xE4EEF2FA)))
+                        )
+                        .border(1.dp, if (isDark) Color(0x38FFFFFF) else Color(0xD0CBD5E1), chipShape)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                )
             }
         }
     }

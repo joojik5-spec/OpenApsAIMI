@@ -78,6 +78,11 @@ internal fun GlassOverviewComposeEmbedded(
     var rangeHours by remember { mutableStateOf(6) }
     // One finger position shared by the BG and IOB charts: touching either one moves both.
     var scrubProgress by remember { mutableStateOf<Float?>(null) }
+    // Lower panels of the combined chart card; more than one can be on at the same time.
+    var showIob by remember { mutableStateOf(true) }
+    var showBalance by remember { mutableStateOf(true) }
+    // Two-finger pinch steps through these hour ranges; the buttons set 6/12/18/24 directly.
+    var pinchFactor by remember { mutableStateOf(1f) }
     LaunchedEffect(rangeHours) { scrubProgress = null }
     var showTools by remember { mutableStateOf(false) }
     var showPersonalize by remember { mutableStateOf(false) }
@@ -109,6 +114,7 @@ internal fun GlassOverviewComposeEmbedded(
         val iobData by graphViewModel.iobGraphFlow.collectAsStateWithLifecycle()
         val basalData by graphViewModel.basalGraphFlow.collectAsStateWithLifecycle()
         val chartConfig by graphViewModel.chartConfigFlow.collectAsStateWithLifecycle()
+        val deviationsData by graphViewModel.deviationsGraphFlow.collectAsStateWithLifecycle()
         val predictions by graphViewModel.predictionsFlow.collectAsStateWithLifecycle()
         val nowEpochMs = System.currentTimeMillis()
         val chartState = remember(
@@ -129,6 +135,17 @@ internal fun GlassOverviewComposeEmbedded(
                 mgdlToChartY = graphViewModel::glucoseMgdlToChartY,
                 pumpStatusText = status?.pumpStatusText.orEmpty(),
                 predictions = predictions,
+            )
+        }
+
+        val deviationBars = remember(deviationsData, chartState) {
+            buildDeviationBars(
+                deviations = deviationsData.deviations,
+                nowEpochMs = nowEpochMs,
+                rangeHours = chartState.rangeHours,
+                readings = chartState.bgReadings,
+                lowLine = chartState.lowLine,
+                highLine = chartState.highLine,
             )
         }
 
@@ -162,6 +179,31 @@ internal fun GlassOverviewComposeEmbedded(
                     onSelectHours = { rangeHours = it },
                     onOpenStats = commands::openStatsScreen,
                     statsLabel = stringResource(R.string.stats_button),
+                    showIob = showIob,
+                    showBalance = showBalance,
+                    onToggleIob = { showIob = !showIob },
+                    onToggleBalance = { showBalance = !showBalance },
+                    onPinch = { factor ->
+                        pinchFactor *= factor
+                        val steps = listOf(3, 6, 9, 12, 18, 24)
+                        val index = steps.indexOfFirst { it >= rangeHours }.let { if (it < 0) steps.lastIndex else it }
+                        if (pinchFactor > 1.25f && index > 0) {
+                            rangeHours = steps[index - 1]
+                            pinchFactor = 1f
+                        } else if (pinchFactor < 0.8f && index < steps.lastIndex) {
+                            rangeHours = steps[index + 1]
+                            pinchFactor = 1f
+                        }
+                    },
+                    balanceChart = {
+                        DeviationStrip(
+                            bars = deviationBars,
+                            timeRangeHours = chartState.rangeHours,
+                            historyFraction = chartState.historyFraction,
+                            isDark = isDark,
+                            scrubProgress = scrubProgress,
+                        )
+                    },
                     bgChart = {
                         BgChartCard(
                             embedded = true,
@@ -441,10 +483,10 @@ internal fun buildGlassChartState(
     }
     val treatmentPoints = buildList {
         windowedBoluses.forEach { b ->
-            add(TreatmentPoint(progress = progress(b.timestamp), isCarb = false, label = b.label, timestamp = b.timestamp))
+            add(TreatmentPoint(progress = progress(b.timestamp), isCarb = false, label = b.label, timestamp = b.timestamp, amount = b.amount.toFloat(), isSmb = b.bolusType.name == "SMB"))
         }
         windowedCarbs.forEach { c ->
-            add(TreatmentPoint(progress = progress(c.timestamp), isCarb = true, label = c.label, timestamp = c.timestamp))
+            add(TreatmentPoint(progress = progress(c.timestamp), isCarb = true, label = c.label, timestamp = c.timestamp, amount = c.amount.toFloat()))
         }
     }
 

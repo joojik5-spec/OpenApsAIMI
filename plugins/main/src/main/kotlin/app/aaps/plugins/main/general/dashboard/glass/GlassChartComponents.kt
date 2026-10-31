@@ -354,14 +354,44 @@ internal fun BgChartCard(
                     drawCircle(color = Color.White, radius = 4.5f, center = Offset(lastX, lastY))
                 }
 
-                // 5. Treatment markers (+ carbs, - bolus/SMB)
-                for (t in treatments) {
-                    val tx = historyX(t.progress)
-                    val ty = chartH - 8f
-                    if (t.isCarb) {
-                        drawCircle(color = Color(0xFF38BDF8), radius = 10f, center = Offset(tx, ty))
-                    } else {
-                        drawCircle(color = Color(0xFF0284C7), radius = 10f, center = Offset(tx, ty))
+                // 5. Treatments as sticks: the height is the size (insulin or carbs), so nothing needs a tap.
+                // Labels are lifted to a free level when two neighbours would overlap.
+                run {
+                    val bolusMax = treatments.filter { !it.isCarb }.maxOfOrNull { it.amount }?.coerceAtLeast(0.1f) ?: 0.1f
+                    val carbMax = treatments.filter { it.isCarb }.maxOfOrNull { it.amount }?.coerceAtLeast(1f) ?: 1f
+                    val maxStick = chartH * 0.42f
+                    val labelPaint = Paint().apply {
+                        textSize = 22f
+                        textAlign = Paint.Align.CENTER
+                        isAntiAlias = true
+                        isFakeBoldText = true
+                    }
+                    val levelRight = FloatArray(3) { Float.NEGATIVE_INFINITY }
+                    for (t in treatments.sortedBy { it.progress }) {
+                        val tx = historyX(t.progress)
+                        val frac = if (t.isCarb) t.amount / carbMax else t.amount / bolusMax
+                        val stickH = (maxStick * frac.coerceIn(0.12f, 1f))
+                        val color = when {
+                            t.isCarb -> Color(0xFFF59E0B)
+                            t.isSmb -> Color(0xFF38BDF8)
+                            else -> Color(0xFF818CF8)
+                        }
+                        val top = chartH - stickH
+                        drawLine(
+                            color = color,
+                            start = Offset(tx, chartH),
+                            end = Offset(tx, top),
+                            strokeWidth = 5f,
+                            cap = StrokeCap.Round
+                        )
+                        drawCircle(color = color, radius = 6f, center = Offset(tx, top))
+                        val text = t.label
+                        val half = labelPaint.measureText(text) / 2f + 4f
+                        var level = 0
+                        while (level < 2 && tx - half < levelRight[level]) level++
+                        levelRight[level] = tx + half
+                        labelPaint.color = if (isDark) android.graphics.Color.argb(230, 255, 255, 255) else android.graphics.Color.argb(230, 15, 23, 42)
+                        drawContext.canvas.nativeCanvas.drawText(text, tx, top - 8f - level * 24f, labelPaint)
                     }
                 }
 
