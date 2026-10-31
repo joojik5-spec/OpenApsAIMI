@@ -105,21 +105,17 @@ internal fun GlassPill(
     modifier: Modifier = Modifier,
     leadingIcon: (@Composable () -> Unit)? = null
 ) {
-    val shape = RoundedCornerShape(13.dp)
+    // A flat outlined info block, not a button: thin outline, a barely visible fill, strong text for contrast.
+    val shape = RoundedCornerShape(12.dp)
     val bgBrush = if (isDark) {
-        Brush.verticalGradient(listOf(Color(0x38FFFFFF), Color(0x18FFFFFF)))
+        Brush.verticalGradient(listOf(Color(0x14FFFFFF), Color(0x08FFFFFF)))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xE4E8F0FA)))
+        Brush.verticalGradient(listOf(Color(0x99FFFFFF), Color(0x66E8F0FA)))
     }
-    val borderColor = if (isDark) Color(0x38FFFFFF) else Color(0xD0CBD5E1)
+    val borderColor = if (isDark) Color(0x40FFFFFF) else Color(0xB0CBD5E1)
 
     Box(
         modifier = modifier
-            .shadow(
-                elevation = if (isDark) 6.dp else 3.dp,
-                shape = shape,
-                spotColor = if (isDark) Color.Black.copy(alpha = 0.50f) else Color(0x22000000)
-            )
             .clip(shape)
             .background(bgBrush)
             .border(1.dp, borderColor, shape)
@@ -143,10 +139,10 @@ internal fun GlassPill(
             ) {
                 Text(
                     text = label,
-                    fontSize = 9.5.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                    lineHeight = 11.sp,
+                    color = if (isDark) Color(0xFFA8B3C7) else Color(0xFF52627A),
+                    lineHeight = 12.sp,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -155,10 +151,10 @@ internal fun GlassPill(
                 if (value.isNotEmpty()) {
                     Text(
                         text = value,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = valueColor ?: if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
-                        lineHeight = 13.sp,
+                        color = valueColor ?: if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A),
+                        lineHeight = 14.sp,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
