@@ -75,10 +75,10 @@ interface PersistenceLayer {
     suspend fun maintainDatabaseAtStartup()
 
     /**
-     * Writes where the database space goes to the log (tag AIMI_DB). Read only. The per-table sizes are
+     * Builds a short text about where the database space goes, and also writes it to the system log (tag AIMI_DB). Read only. The per-table sizes are
      * written once per install, so a call at every start is cheap.
      */
-    suspend fun logDatabaseSizeReport() {}
+    suspend fun logDatabaseSizeReport(): String = ""
 
     /**
      * Full VACUUM of the database: defragments the file and returns free pages to the OS.

@@ -264,7 +264,6 @@ class AppRepository @Inject internal constructor(
         } finally {
             DatabaseMaintenanceCoordinator.markCompactionFinished()
         }
-        logDatabaseSizeReport()
     }
 
     /**
@@ -272,7 +271,8 @@ class AppRepository @Inject internal constructor(
      * per-table sizes (dbstat reads the whole file) only once, marked by a small file next to the database.
      * It only reads, so a failure here is ignored.
      */
-    suspend fun logDatabaseSizeReport() {
+    suspend fun logDatabaseSizeReport(): String {
+        val report = StringBuilder()
         try {
             database.useWriterConnection { connection ->
                 suspend fun number(sql: String): Long =
@@ -289,26 +289,30 @@ class AppRepository @Inject internal constructor(
                 val pageSize = number("PRAGMA page_size")
                 val pages = number("PRAGMA page_count")
                 val freePages = number("PRAGMA freelist_count")
-                Log.i(
-                    "AIMI_DB",
-                    "file=${File(path).length() / 1_048_576}MB pages=$pages free_pages=$freePages " +
-                        "free_in_file=${freePages * pageSize / 1_048_576}MB"
-                )
-                val marker = File("$path.sizereport")
+                report.append("file=${File(path).length() / 1_048_576}MB pages=$pages free_pages=$freePages free_in_file=${freePages * pageSize / 1_048_576}MB\n")
+                // Per-table sizes read the whole file, so they are made once per install (a marker file next to the database).
+                val marker = File("$path.sizereport2")
                 if (!marker.exists()) {
-                    connection.usePrepared(
-                        "SELECT name, SUM(pgsize) AS bytes, COUNT(*) AS pages FROM dbstat GROUP BY name ORDER BY bytes DESC LIMIT 15"
-                    ) { stmt ->
-                        while (stmt.step()) {
-                            Log.i("AIMI_DB", "table/index ${stmt.getText(0)}: ${stmt.getLong(1) / 1_048_576}MB (${stmt.getLong(2)} pages)")
+                    try {
+                        connection.usePrepared(
+                            "SELECT name, SUM(pgsize) AS bytes, COUNT(*) AS pages FROM dbstat GROUP BY name ORDER BY bytes DESC LIMIT 15"
+                        ) { stmt ->
+                            while (stmt.step()) {
+                                report.append("table/index ${stmt.getText(0)}: ${stmt.getLong(1) / 1_048_576}MB (${stmt.getLong(2)} pages)\n")
+                            }
                         }
+                        marker.writeText("done")
+                    } catch (t: Throwable) {
+                        report.append("per-table sizes not available: $t\n")
                     }
-                    marker.writeText("done")
                 }
             }
         } catch (t: Throwable) {
-            Log.w("AIMI_DB", "size report failed: $t")
+            report.append("size report failed: $t\n")
         }
+        val text = report.toString()
+        Log.w("AIMI_DB", text)
+        return text
     }
 
     /**

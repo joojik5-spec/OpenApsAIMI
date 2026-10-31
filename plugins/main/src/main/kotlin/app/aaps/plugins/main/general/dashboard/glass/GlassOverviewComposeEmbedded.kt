@@ -156,43 +156,47 @@ internal fun GlassOverviewComposeEmbedded(
                     onOpenTools = { showTools = true },
                     selectedPills = selectedPills,
                 )
-                BgChartCard(
-                    scrubProgress = scrubProgress,
-                    onScrub = { scrubProgress = it },
-                    readings = chartState.bgReadings,
-                    treatments = chartState.treatments,
-                    timeRangeHours = chartState.rangeHours,
-                    currentBgValue = chartState.currentBgValue,
-                    lowLine = chartState.lowLine,
-                    highLine = chartState.highLine,
-                    predictions = chartState.predictions,
-                    historyFraction = chartState.historyFraction,
-                    axisMinValue = chartState.axisMinValue,
-                    axisHeadroom = chartState.axisHeadroom,
-                    basalReadings = chartState.basalReadings,
-                    profileBasalReadings = chartState.profileBasalReadings,
-                    maxBasalRateUh = chartState.maxBasalRateUh,
-                    formatValue = { v -> graphViewModel.formatBgChartAxisTick(v.toDouble()) },
+                GlassCombinedChartCard(
                     isDark = isDark,
-                )
-                IobChartCard(
-                    scrubProgress = scrubProgress,
-                    onScrub = { scrubProgress = it },
-                    iobReadings = chartState.iobReadings,
-                    predictions = chartState.iobPredictions,
-                    currentIob = chartState.currentIob,
-                    timeRangeHours = chartState.rangeHours,
-                    historyFraction = chartState.historyFraction,
-                    isDark = isDark,
-                )
-                TimeFilterBar(
                     selectedHours = rangeHours,
                     onSelectHours = { rangeHours = it },
                     onOpenStats = commands::openStatsScreen,
-                    onOpenTreatment = commands::openTreatmentsScreen,
                     statsLabel = stringResource(R.string.stats_button),
-                    treatmentLabel = stringResource(app.aaps.core.ui.R.string.overview_treatment_label),
-                    isDark = isDark,
+                    bgChart = {
+                        BgChartCard(
+                            embedded = true,
+                            scrubProgress = scrubProgress,
+                            onScrub = { scrubProgress = it },
+                            readings = chartState.bgReadings,
+                            treatments = chartState.treatments,
+                            timeRangeHours = chartState.rangeHours,
+                            currentBgValue = chartState.currentBgValue,
+                            lowLine = chartState.lowLine,
+                            highLine = chartState.highLine,
+                            predictions = chartState.predictions,
+                            historyFraction = chartState.historyFraction,
+                            axisMinValue = chartState.axisMinValue,
+                            axisHeadroom = chartState.axisHeadroom,
+                            basalReadings = chartState.basalReadings,
+                            profileBasalReadings = chartState.profileBasalReadings,
+                            maxBasalRateUh = chartState.maxBasalRateUh,
+                            formatValue = { v -> graphViewModel.formatBgChartAxisTick(v.toDouble()) },
+                            isDark = isDark,
+                        )
+                    },
+                    iobChart = {
+                        IobChartCard(
+                            embedded = true,
+                            scrubProgress = scrubProgress,
+                            onScrub = { scrubProgress = it },
+                            iobReadings = chartState.iobReadings,
+                            predictions = chartState.iobPredictions,
+                            currentIob = chartState.currentIob,
+                            timeRangeHours = chartState.rangeHours,
+                            historyFraction = chartState.historyFraction,
+                            isDark = isDark,
+                        )
+                    },
                 )
                 if (chartState.pumpStatusText.isNotBlank()) {
                     PumpStatusNotification(status = chartState.pumpStatusText, isDark = isDark)

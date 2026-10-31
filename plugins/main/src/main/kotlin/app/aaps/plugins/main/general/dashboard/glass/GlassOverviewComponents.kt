@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -21,6 +23,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
@@ -120,37 +123,48 @@ internal fun GlassPill(
             .clip(shape)
             .background(bgBrush)
             .border(1.dp, borderColor, shape)
-            .padding(horizontal = 7.dp, vertical = 5.dp),
+            .heightIn(min = 46.dp)
+            .padding(horizontal = 8.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
+        // Icon on the left in a fixed slot, text centred in the rest, so all pills line up the same way.
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             if (leadingIcon != null) {
-                leadingIcon()
+                Box(modifier = Modifier.width(18.dp), contentAlignment = Alignment.Center) { leadingIcon() }
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
-                modifier = Modifier
+                modifier = Modifier.weight(1f)
             ) {
                 Text(
                     text = label,
                     fontSize = 9.5.sp,
                     fontWeight = FontWeight.Medium,
                     color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                    lineHeight = 11.sp
-                )
-                Text(
-                    text = value,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = valueColor ?: if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
-                    lineHeight = 13.sp,
+                    lineHeight = 11.sp,
+                    textAlign = TextAlign.Center,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
+                if (value.isNotEmpty()) {
+                    Text(
+                        text = value,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = valueColor ?: if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
+                        lineHeight = 13.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }

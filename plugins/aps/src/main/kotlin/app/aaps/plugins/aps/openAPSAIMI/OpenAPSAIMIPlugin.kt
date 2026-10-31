@@ -319,7 +319,11 @@ open class OpenAPSAIMIPlugin  @Inject constructor(
         }
         aimiPluginIoScope.launch {
             try {
-                persistenceLayer.logDatabaseSizeReport()
+                val report = persistenceLayer.logDatabaseSizeReport()
+                if (report.isNotEmpty()) {
+                    aapsLogger.info(LTag.APS, "DB size report: $report")
+                    storageHelper.getAimiFile("AIMI_db_size_report.txt").writeText(report)
+                }
             } catch (e: Exception) {
                 aapsLogger.error(LTag.APS, "Database size report failed", e)
             }

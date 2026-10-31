@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalTime
@@ -65,6 +67,8 @@ internal fun BgChartCard(
     /** Shared position (0..1 along the history) of the finger on this or the IOB chart; null when not touched. */
     scrubProgress: Float? = null,
     onScrub: (Float?) -> Unit = {},
+    /** True when the chart sits inside the combined card: no own glass container, fixed inner height. */
+    embedded: Boolean = false,
 ) {
     val touchedReading: BgReadingPoint? = scrubProgress?.let { p -> readings.minByOrNull { abs(it.progress - p) } }
     var selectedTreatment by remember { mutableStateOf<TreatmentPoint?>(null) }
@@ -75,12 +79,7 @@ internal fun BgChartCard(
         selectedTreatment = null
     }
 
-    GlassContainer(
-        isDark = isDark,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(210.dp)
-    ) {
+    ChartShell(embedded = embedded, isDark = isDark, height = 190.dp) {
         Column(modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -525,15 +524,12 @@ internal fun IobChartCard(
     /** Shared position (0..1 along the history) of the finger on this or the BG chart; null when not touched. */
     scrubProgress: Float? = null,
     onScrub: (Float?) -> Unit = {},
+    /** True when the chart sits inside the combined card: no own glass container, fixed inner height. */
+    embedded: Boolean = false,
 ) {
     val touchedIob: IobReadingPoint? = scrubProgress?.let { p -> iobReadings.minByOrNull { abs(it.progress - p) } }
 
-    GlassContainer(
-        isDark = isDark,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(145.dp)
-    ) {
+    ChartShell(embedded = embedded, isDark = isDark, height = 120.dp) {
         Column(modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -774,5 +770,18 @@ internal fun IobChartCard(
                 }
             }
         }
+    }
+}
+
+/** Own glass card for a chart on its own, or just the sized area when the chart is part of the combined card. */
+@Composable
+private fun ChartShell(embedded: Boolean, isDark: Boolean, height: Dp, content: @Composable () -> Unit) {
+    if (embedded) {
+        Box(modifier = Modifier.fillMaxWidth().height(height)) { content() }
+    } else {
+        GlassContainer(
+            isDark = isDark,
+            modifier = Modifier.fillMaxWidth().height(if (height == 190.dp) 210.dp else 145.dp)
+        ) { content() }
     }
 }
