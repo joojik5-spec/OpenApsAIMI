@@ -1,6 +1,7 @@
 package app.aaps.database
 
 import android.os.StatFs
+import android.util.Log
 import androidx.room.Transactor.SQLiteTransactionType
 import androidx.room.useWriterConnection
 import app.aaps.database.entities.APSResult
@@ -262,6 +263,51 @@ class AppRepository @Inject internal constructor(
             }
         } finally {
             DatabaseMaintenanceCoordinator.markCompactionFinished()
+        }
+        logDatabaseSizeReport()
+    }
+
+    /**
+     * Writes where the database space goes to the log (tag AIMI_DB). Cheap numbers every start; the
+     * per-table sizes (dbstat reads the whole file) only once, marked by a small file next to the database.
+     * It only reads, so a failure here is ignored.
+     */
+    private suspend fun logDatabaseSizeReport() {
+        try {
+            database.useWriterConnection { connection ->
+                suspend fun number(sql: String): Long =
+                    try {
+                        connection.usePrepared(sql) { if (it.step()) it.getLong(0) else -1L }
+                    } catch (_: Throwable) {
+                        -1L
+                    }
+
+                var path = ""
+                connection.usePrepared("PRAGMA database_list") { stmt ->
+                    while (stmt.step()) if (stmt.getText(1) == "main") path = stmt.getText(2)
+                }
+                val pageSize = number("PRAGMA page_size")
+                val pages = number("PRAGMA page_count")
+                val freePages = number("PRAGMA freelist_count")
+                Log.i(
+                    "AIMI_DB",
+                    "file=${File(path).length() / 1_048_576}MB pages=$pages free_pages=$freePages " +
+                        "free_in_file=${freePages * pageSize / 1_048_576}MB"
+                )
+                val marker = File("$path.sizereport")
+                if (!marker.exists()) {
+                    connection.usePrepared(
+                        "SELECT name, SUM(pgsize) AS bytes, COUNT(*) AS pages FROM dbstat GROUP BY name ORDER BY bytes DESC LIMIT 15"
+                    ) { stmt ->
+                        while (stmt.step()) {
+                            Log.i("AIMI_DB", "table/index ${stmt.getText(0)}: ${stmt.getLong(1) / 1_048_576}MB (${stmt.getLong(2)} pages)")
+                        }
+                    }
+                    marker.writeText("done")
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w("AIMI_DB", "size report failed: $t")
         }
     }
 
