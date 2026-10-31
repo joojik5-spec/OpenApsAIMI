@@ -192,7 +192,7 @@ internal fun StatusAgoraCard(
                             text = state.currentBg,
                             fontSize = GLUCOSE_FONT_SIZE,
                             fontWeight = FontWeight.ExtraBold,
-                            color = if (glucoseStale) neutralColor else if (isDark) Color.White else Color(0xFF0F172A),
+                            color = if (glucoseStale) neutralColor else Color(if (state.glucoseDigitsColor != 0) state.glucoseDigitsColor else state.glucoseColor),
                             textDecoration = if (glucoseStale) TextDecoration.LineThrough else null,
                             letterSpacing = (-2).sp,
                             lineHeight = GLUCOSE_FONT_SIZE,

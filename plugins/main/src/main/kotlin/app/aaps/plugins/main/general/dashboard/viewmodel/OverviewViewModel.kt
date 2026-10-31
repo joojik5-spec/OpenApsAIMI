@@ -879,6 +879,7 @@ class OverviewViewModel(
                 preferences,
                 resourceHelper
             ),
+            glucoseGradientColor = DashboardCoherentGlucose.gradientBgColor(displayMgdl, profileFunction, preferences),
             trendArrowRes = trendArrow,
             trendDescription = trendDescription,
             deltaText = deltaText,
@@ -1531,6 +1532,8 @@ class OverviewViewModel(
 data class StatusCardState(
     val glucoseText: String,
     val glucoseColor: Int,
+    /** Smooth colour for the big digits (green in range, yellow to orange high, pale to deep red low); 0 when not set. */
+    val glucoseGradientColor: Int = 0,
     val trendArrowRes: Int?,
     val trendDescription: String,
     val deltaText: String,

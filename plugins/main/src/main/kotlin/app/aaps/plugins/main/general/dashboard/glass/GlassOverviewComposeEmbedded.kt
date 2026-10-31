@@ -486,6 +486,7 @@ internal fun buildGlassUiState(
         currentBg = status.glucoseText,
         unit = status.unitText,
         glucoseColor = status.glucoseColor,
+        glucoseDigitsColor = status.glucoseGradientColor,
         deltaText = status.deltaText,
         trendArrowRes = status.trendArrowRes,
         timeAgo = status.timeAgo,

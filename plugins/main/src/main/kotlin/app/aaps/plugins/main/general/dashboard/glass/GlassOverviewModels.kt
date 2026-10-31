@@ -8,6 +8,8 @@ data class GlassUiState(
     val currentBg: String = "--",
     val unit: String = "mg/dL",
     val glucoseColor: Int = 0xFF94A3B8.toInt(),
+    /** Colour of the big digits along the glucose value; 0 means use [glucoseColor]. */
+    val glucoseDigitsColor: Int = 0,
     val deltaText: String = "",
     val trendArrowRes: Int? = null,
     val timeAgo: String = "--",
