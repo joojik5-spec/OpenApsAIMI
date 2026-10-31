@@ -171,7 +171,7 @@ fun GlassNavigationBar(
                     Text(
                         text = stringResource(tab.labelRes()),
                         style = MaterialTheme.typography.labelSmall,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Clip,

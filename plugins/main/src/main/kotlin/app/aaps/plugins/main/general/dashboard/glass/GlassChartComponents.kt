@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
@@ -38,6 +39,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -49,6 +51,7 @@ import java.time.LocalTime
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.ceil
 
 @Composable
@@ -252,17 +255,8 @@ internal fun BgChartCard(
                 drawContext.canvas.nativeCanvas.drawText(formatValue(highLine), scaleCenterX, yHigh + 8f, textPaint)
                 drawContext.canvas.nativeCanvas.drawText(formatValue(lowLine), scaleCenterX, yLow + 8f, textPaint)
 
-                // 3. Vertical time lines and labels
-                val timeTicks = 6
-                for (i in 0 until timeTicks) {
-                    val x = historyX(i.toFloat() / (timeTicks - 1))
-                    drawLine(
-                        color = if (isDark) Color(0x14FFFFFF) else Color(0x0D000000),
-                        start = Offset(x, 0f),
-                        end = Offset(x, chartH),
-                        strokeWidth = 0.8f
-                    )
-                }
+                // 3. Vertical time lines (at whole hours or half hours, by real time)
+                drawTimeAxisGrid(timeRangeHours, chartW, historyFraction, chartH, if (isDark) Color(0x14FFFFFF) else Color(0x0D000000))
 
                 // 3b. "Now" line separating history from predictions
                 val nowX = chartW * historyFraction
@@ -359,44 +353,61 @@ internal fun BgChartCard(
                     drawCircle(color = Color.White, radius = 4.5f, center = Offset(lastX, lastY))
                 }
 
-                // 5. Treatments as sticks: the height is the size (insulin or carbs), so nothing needs a tap.
-                // Labels are lifted to a free level when two neighbours would overlap.
+                // 5. Treatments: a small dot on the glucose curve at the moment of the dose, a thin stick going up
+                // (or down when there is no room above) and a short number. Doses that are very close are merged,
+                // and a number that would overlap another one is dropped, so a busy day stays readable.
                 run {
-                    val bolusMax = treatments.filter { !it.isCarb }.maxOfOrNull { it.amount }?.coerceAtLeast(0.1f) ?: 0.1f
-                    val carbMax = treatments.filter { it.isCarb }.maxOfOrNull { it.amount }?.coerceAtLeast(1f) ?: 1f
-                    val maxStick = chartH * 0.42f
+                    if (treatments.isEmpty() || readings.isEmpty()) return@run
+                    val stickAlpha = 0.30f
+                    val textAlpha = 0.65f
+                    val merged = ArrayList<TreatmentPoint>()
+                    for (t in treatments.sortedBy { it.progress }) {
+                        val last = merged.lastOrNull()
+                        if (last != null && last.isCarb == t.isCarb && abs(historyX(t.progress) - historyX(last.progress)) < 10f) {
+                            merged[merged.lastIndex] = last.copy(amount = last.amount + t.amount, label = formatTreatmentLabel(t.isCarb, last.amount + t.amount))
+                        } else {
+                            merged.add(t.copy(label = formatTreatmentLabel(t.isCarb, t.amount)))
+                        }
+                    }
+                    val bolusMax = merged.filter { !it.isCarb }.maxOfOrNull { it.amount }?.coerceAtLeast(0.1f) ?: 0.1f
+                    val carbMax = merged.filter { it.isCarb }.maxOfOrNull { it.amount }?.coerceAtLeast(1f) ?: 1f
                     val labelPaint = Paint().apply {
-                        textSize = 22f
-                        textAlign = Paint.Align.CENTER
+                        textSize = 21f
+                        textAlign = Paint.Align.LEFT
                         isAntiAlias = true
                         isFakeBoldText = true
                     }
-                    val levelRight = FloatArray(3) { Float.NEGATIVE_INFINITY }
-                    for (t in treatments.sortedBy { it.progress }) {
+                    val taken = ArrayList<Rect>()
+                    fun free(r: Rect) = taken.none { it.overlaps(r) } &&
+                        r.left >= 0f && r.right <= chartW && r.top >= 0f && r.bottom <= chartH
+                    for (t in merged) {
                         val tx = historyX(t.progress)
+                        val bg = readings.minByOrNull { abs(it.progress - t.progress) }?.value ?: continue
+                        val dotY = mapY(bg)
                         val frac = if (t.isCarb) t.amount / carbMax else t.amount / bolusMax
-                        val stickH = (maxStick * frac.coerceIn(0.12f, 1f))
-                        val color = when {
-                            t.isCarb -> Color(0xFFF59E0B)
-                            t.isSmb -> Color(0xFF38BDF8)
-                            else -> Color(0xFF818CF8)
-                        }
-                        val top = chartH - stickH
-                        drawLine(
-                            color = color,
-                            start = Offset(tx, chartH),
-                            end = Offset(tx, top),
-                            strokeWidth = 5f,
-                            cap = StrokeCap.Round
+                        val stickLen = 14f + 36f * frac.coerceIn(0f, 1f)
+                        val up = dotY - stickLen - 26f >= 0f
+                        val tipY = if (up) dotY - stickLen else dotY + stickLen
+                        val color = (if (t.isCarb) Color(0xFFF59E0B) else Color(0xFF38BDF8))
+                        drawLine(color = color.copy(alpha = stickAlpha), start = Offset(tx, dotY), end = Offset(tx, tipY), strokeWidth = 3f, cap = StrokeCap.Round)
+                        drawCircle(color = color.copy(alpha = stickAlpha + 0.1f), radius = 6f, center = Offset(tx, dotY))
+                        val w = labelPaint.measureText(t.label)
+                        val th = 22f
+                        // Candidate places: right of the tip, left of the tip, above/below the tip.
+                        val candidates = listOf(
+                            Rect(tx + 6f, tipY - th / 2f, tx + 6f + w, tipY + th / 2f),
+                            Rect(tx - 6f - w, tipY - th / 2f, tx - 6f, tipY + th / 2f),
+                            Rect(tx - w / 2f, if (up) tipY - th - 2f else tipY + 2f, tx + w / 2f, if (up) tipY - 2f else tipY + th + 2f),
                         )
-                        drawCircle(color = color, radius = 6f, center = Offset(tx, top))
-                        val text = t.label
-                        val half = labelPaint.measureText(text) / 2f + 4f
-                        var level = 0
-                        while (level < 2 && tx - half < levelRight[level]) level++
-                        levelRight[level] = tx + half
-                        labelPaint.color = if (isDark) android.graphics.Color.argb(230, 255, 255, 255) else android.graphics.Color.argb(230, 15, 23, 42)
-                        drawContext.canvas.nativeCanvas.drawText(text, tx, top - 8f - level * 24f, labelPaint)
+                        val spot = candidates.firstOrNull { free(it) } ?: continue
+                        taken.add(spot)
+                        labelPaint.color = android.graphics.Color.argb(
+                            (textAlpha * 255).toInt(),
+                            if (t.isCarb) 245 else 56,
+                            if (t.isCarb) 158 else 189,
+                            if (t.isCarb) 11 else 248
+                        )
+                        drawContext.canvas.nativeCanvas.drawText(t.label, spot.left, spot.bottom - 4f, labelPaint)
                     }
                 }
 
@@ -446,16 +457,7 @@ internal fun BgChartCard(
                     textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                val now = LocalTime.now()
-                for (i in 0 until timeTicks) {
-                    val progress = i.toFloat() / (timeTicks - 1)
-                    val x = historyX(progress)
-                    val hoursAgo = timeRangeHours * (1f - progress)
-                    val totalMinutes = (hoursAgo * 60).toLong()
-                    val labelTime = now.minusMinutes(totalMinutes)
-                    val label = String.format(Locale.US, "%02d", labelTime.hour)
-                    drawContext.canvas.nativeCanvas.drawText(label, x, h - 6f, hourPaint)
-                }
+                drawTimeAxisLabels(timeRangeHours, chartW, historyFraction, h - 6f, hourPaint)
 
                 // 7. Touched-point indicator (dashed line + circle)
                 touchedReading?.let { pt ->
@@ -674,16 +676,7 @@ internal fun IobChartCard(
                     strokeWidth = 1f
                 )
 
-                // Vertical grid lines
-                for (i in 0 until 6) {
-                    val x = historyX(i.toFloat() / 5f)
-                    drawLine(
-                        color = if (isDark) Color(0x14FFFFFF) else Color(0x0D000000),
-                        start = Offset(x, 0f),
-                        end = Offset(x, chartH),
-                        strokeWidth = 0.8f
-                    )
-                }
+                drawTimeAxisGrid(timeRangeHours, chartW, historyFraction, chartH, if (isDark) Color(0x14FFFFFF) else Color(0x0D000000))
 
                 val textPaint = Paint().apply {
                     color = if (isDark) android.graphics.Color.argb(160, 255, 255, 255) else android.graphics.Color.argb(180, 71, 85, 105)
@@ -778,16 +771,7 @@ internal fun IobChartCard(
                     textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                val now = LocalTime.now()
-                for (i in 0 until 6) {
-                    val progress = i.toFloat() / 5f
-                    val x = historyX(progress)
-                    val hoursAgo = timeRangeHours * (1f - progress)
-                    val totalMinutes = (hoursAgo * 60).toLong()
-                    val labelTime = now.minusMinutes(totalMinutes)
-                    val label = String.format(Locale.US, "%02d", labelTime.hour)
-                    drawContext.canvas.nativeCanvas.drawText(label, x, h - 6f, hourPaint)
-                }
+                drawTimeAxisLabels(timeRangeHours, chartW, historyFraction, h - 6f, hourPaint)
 
                 // Touched IOB point indicator (dashed line + circle)
                 touchedIob?.let { pt ->
@@ -865,3 +849,49 @@ internal fun Modifier.edgeFade(bottomBandPx: Float, fadeWidthPx: Float = 100f, r
                 )
             }
         }
+
+/** Short text for a dose: insulin as a plain number, carbs with a "g". */
+private fun formatTreatmentLabel(isCarb: Boolean, amount: Float): String =
+    if (isCarb) "${amount.roundToInt()}g" else String.format(Locale.US, if (amount < 1f) "%.2f" else "%.1f", amount).trimEnd('0').trimEnd('.')
+
+/** Step between time marks for a window of [rangeMinutes]. */
+private fun axisStepMinutes(rangeMinutes: Int): Int = when {
+    rangeMinutes <= 30 -> 5
+    rangeMinutes <= 60 -> 10
+    rangeMinutes <= 180 -> 30
+    rangeMinutes <= 360 -> 60
+    rangeMinutes <= 720 -> 120
+    else -> 180
+}
+
+/** Calls [block] with the position (0..1 along the history) and the clock minute for every time mark in the window. */
+private inline fun forEachTimeMark(timeRangeHours: Int, block: (progress: Float, minuteOfDay: Int) -> Unit) {
+    val rangeMin = timeRangeHours * 60
+    val step = axisStepMinutes(rangeMin)
+    val now = LocalTime.now()
+    val nowMin = now.hour * 60 + now.minute
+    var ago = nowMin % step
+    while (ago <= rangeMin) {
+        val progress = 1f - ago.toFloat() / rangeMin
+        block(progress, ((nowMin - ago) % 1440 + 1440) % 1440)
+        ago += step
+    }
+}
+
+private fun DrawScope.drawTimeAxisGrid(timeRangeHours: Int, chartW: Float, historyFraction: Float, chartH: Float, color: Color) {
+    forEachTimeMark(timeRangeHours) { progress, _ ->
+        val x = progress * chartW * historyFraction
+        drawLine(color = color, start = Offset(x, 0f), end = Offset(x, chartH), strokeWidth = 0.8f)
+    }
+}
+
+private fun DrawScope.drawTimeAxisLabels(timeRangeHours: Int, chartW: Float, historyFraction: Float, y: Float, paint: Paint) {
+    val wholeHours = axisStepMinutes(timeRangeHours * 60) >= 60
+    forEachTimeMark(timeRangeHours) { progress, minute ->
+        val x = progress * chartW * historyFraction
+        // Skip a label that would be cut by the left edge.
+        if (x < 20f) return@forEachTimeMark
+        val label = if (wholeHours) String.format(Locale.US, "%02d", minute / 60) else String.format(Locale.US, "%02d:%02d", minute / 60, minute % 60)
+        drawContext.canvas.nativeCanvas.drawText(label, x, y, paint)
+    }
+}
