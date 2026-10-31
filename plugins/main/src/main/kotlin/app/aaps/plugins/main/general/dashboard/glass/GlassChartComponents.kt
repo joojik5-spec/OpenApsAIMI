@@ -28,6 +28,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -149,6 +153,7 @@ internal fun BgChartCard(
 
             Canvas(modifier = Modifier
                 .fillMaxSize()
+                .edgeFade(bottomBandPx = 36f)
                 .pointerInput(readings, treatments, timeRangeHours) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
@@ -597,6 +602,7 @@ internal fun IobChartCard(
 
             Canvas(modifier = Modifier
                 .fillMaxSize()
+                .edgeFade(bottomBandPx = 28f)
                 .pointerInput(iobReadings, timeRangeHours, historyFraction) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
@@ -815,3 +821,30 @@ private fun ChartShell(embedded: Boolean, isDark: Boolean, height: Dp, content: 
         ) { content() }
     }
 }
+
+/**
+ * Lets the plot area dissolve at the left and right edge instead of being cut off hard. Only the plot is faded: the
+ * band at the bottom with the hour numbers and the axis numbers on the right stay fully readable.
+ */
+internal fun Modifier.edgeFade(bottomBandPx: Float, fadeWidthPx: Float = 44f, rightAxisPx: Float = 65f): Modifier =
+    this
+        .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+        .drawWithContent {
+            drawContent()
+            val plotRight = size.width - rightAxisPx
+            val plotHeight = size.height - bottomBandPx
+            if (plotRight > fadeWidthPx * 2 && plotHeight > 0f) {
+                drawRect(
+                    brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = fadeWidthPx),
+                    topLeft = Offset(0f, 0f),
+                    size = Size(fadeWidthPx, plotHeight),
+                    blendMode = BlendMode.DstIn
+                )
+                drawRect(
+                    brush = Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = plotRight - fadeWidthPx, endX = plotRight),
+                    topLeft = Offset(plotRight - fadeWidthPx, 0f),
+                    size = Size(fadeWidthPx, plotHeight),
+                    blendMode = BlendMode.DstIn
+                )
+            }
+        }

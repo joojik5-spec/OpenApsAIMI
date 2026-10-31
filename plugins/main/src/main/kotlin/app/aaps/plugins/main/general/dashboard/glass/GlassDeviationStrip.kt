@@ -51,7 +51,7 @@ internal fun DeviationStrip(
                 color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
             )
         }
-        Canvas(modifier = Modifier.fillMaxSize().padding(top = 4.dp)) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(top = 4.dp).edgeFade(bottomBandPx = 0f)) {
             val chartW = size.width - 65f
             val mid = size.height / 2f
             drawLine(
