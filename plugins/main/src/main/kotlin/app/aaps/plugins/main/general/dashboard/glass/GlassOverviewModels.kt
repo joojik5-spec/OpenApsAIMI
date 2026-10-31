@@ -1,5 +1,7 @@
 package app.aaps.plugins.main.general.dashboard.glass
 
+import app.aaps.core.data.model.RM
+
 import app.aaps.core.interfaces.source.CgmWarmupStatus
 import app.aaps.core.ui.compose.StatusLevel
 
@@ -26,6 +28,8 @@ data class GlassUiState(
     val sensorAgeStatus: StatusLevel = StatusLevel.UNSPECIFIED,
     val sensorLabel: String = "Sensor",
     val loopStatusText: String = "Loop",
+    /** The running mode; the main screen shows its icon next to the glucose. */
+    val loopMode: RM.Mode? = null,
     val loopIsRunning: Boolean = true,
     val iobText: String = "--",
     val isTempTargetActive: Boolean = false,
@@ -35,6 +39,8 @@ data class GlassUiState(
     val hrText: String = "--",
     val lastBolusText: String = "--",
     val lastCarbsText: String = "--",
+    /** Insulin left in the pump reservoir, for the optional reservoir block. */
+    val reservoirText: String = "--",
     /** Today's time in range since midnight; null early in the day or without data (ring shows an empty track). */
     val tir: GlassTir? = null,
     /** CGM link state of the active source (connecting, reconnecting, warm-up); null when it reports none. */

@@ -30,7 +30,7 @@ import kotlin.math.abs
 @Composable
 internal fun DeviationStrip(
     bars: List<DeviationBar>,
-    timeRangeHours: Int,
+    timeRangeHours: Float,
     historyFraction: Float,
     isDark: Boolean,
     scrubProgress: Float? = null,
@@ -100,13 +100,13 @@ internal fun DeviationStrip(
 internal fun buildDeviationBars(
     deviations: List<DeviationDataPoint>,
     nowEpochMs: Long,
-    rangeHours: Int,
+    rangeHours: Float,
     readings: List<BgReadingPoint>,
     lowLine: Float,
     highLine: Float,
 ): List<DeviationBar> {
     if (deviations.isEmpty() || readings.isEmpty()) return emptyList()
-    val windowStart = nowEpochMs - rangeHours * 3_600_000L
+    val windowStart = nowEpochMs - (rangeHours * 3_600_000f).toLong()
     val inWindow = deviations.filter { it.timestamp in windowStart..nowEpochMs }
     if (inWindow.isEmpty()) return emptyList()
     val maxAbs = inWindow.maxOf { abs(it.value) }.coerceAtLeast(0.0001)

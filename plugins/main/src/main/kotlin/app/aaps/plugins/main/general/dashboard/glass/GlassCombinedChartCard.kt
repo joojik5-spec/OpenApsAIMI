@@ -5,6 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,7 +18,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,13 +46,23 @@ import kotlin.math.sqrt
 @Composable
 internal fun GlassCombinedChartCard(
     isDark: Boolean,
-    selectedHours: Int,
-    onSelectHours: (Int) -> Unit,
+    selectedMinutes: Int,
+    onSelectMinutes: (Int) -> Unit,
     onOpenStats: () -> Unit,
+    /** True while the window is moved back in time; a small button brings it back to now. */
+    panned: Boolean,
+    onResetPan: () -> Unit,
+    /** Visible window and the shift back from now, both in minutes, for the time bar under the glucose chart. */
+    windowMinutes: Int,
+    panMinutes: Int,
+    onPanToMinutes: (Int) -> Unit,
     statsLabel: String,
     bgChart: @Composable () -> Unit,
     iobChart: @Composable () -> Unit,
     balanceChart: @Composable () -> Unit,
+    cobChart: @Composable () -> Unit,
+    showCob: Boolean,
+    onToggleCob: () -> Unit,
     showIob: Boolean,
     showBalance: Boolean,
     onToggleIob: () -> Unit,
@@ -72,12 +92,41 @@ internal fun GlassCombinedChartCard(
                         .clickable { onOpenStats() }
                         .padding(horizontal = 6.dp, vertical = 5.dp)
                 )
-                LayerChip(label = "IOB", selected = showIob, isDark = isDark, onClick = onToggleIob)
-                LayerChip(label = "Bal", selected = showBalance, isDark = isDark, onClick = onToggleBalance)
+                var menuOpen by remember { mutableStateOf(false) }
+                Box {
+                    Text(
+                        text = "\u25BE",
+                        fontSize = 16.sp,
+                        color = muted,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .clickable { menuOpen = true }
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        LayerMenuItem("IOB", showIob) { onToggleIob() }
+                        LayerMenuItem("COB", showCob) { onToggleCob() }
+                        LayerMenuItem("Insulin balance", showBalance) { onToggleBalance() }
+                    }
+                }
+                if (panned) {
+                    Text(
+                        text = "\u25B8| now",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isDark) Color(0x14FFFFFF) else Color(0x0F000000), RoundedCornerShape(50))
+                            .clickable { onResetPan() }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.weight(1f))
-                HourSegment(selectedHours = selectedHours, onSelectHours = onSelectHours, isDark = isDark)
+                HourSegment(selectedMinutes = selectedMinutes, onSelectMinutes = onSelectMinutes, isDark = isDark)
             }
             bgChart()
+            TimeBar(windowMinutes = windowMinutes, panMinutes = panMinutes, onPanToMinutes = onPanToMinutes, isDark = isDark)
             if (showIob) {
                 Box(
                     modifier = Modifier
@@ -87,6 +136,16 @@ internal fun GlassCombinedChartCard(
                         .background(if (isDark) Color(0x1FFFFFFF) else Color(0x1A000000))
                 )
                 iobChart()
+            }
+            if (showCob) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(if (isDark) Color(0x1FFFFFFF) else Color(0x1A000000))
+                )
+                cobChart()
             }
             if (showBalance) {
                 Box(
@@ -102,70 +161,53 @@ internal fun GlassCombinedChartCard(
     }
 }
 
-/** Slim capsule with the hour choices; the selected one is a filled pill. */
+/** Shows the visible window as a small chip ("6h ▾"); a tap opens a list with all window sizes. */
 @Composable
-private fun HourSegment(selectedHours: Int, onSelectHours: (Int) -> Unit, isDark: Boolean) {
+private fun HourSegment(selectedMinutes: Int, onSelectMinutes: (Int) -> Unit, isDark: Boolean) {
     val shape = RoundedCornerShape(50)
-    Row(
-        modifier = Modifier
-            .clip(shape)
-            .background(if (isDark) Color(0x1FFFFFFF) else Color(0x14000000))
-            .padding(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(1.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        listOf(6, 12, 18, 24).forEach { hours ->
-            val selected = hours == selectedHours
-            Box(
-                modifier = Modifier
-                    .clip(shape)
-                    .then(
-                        if (selected) Modifier.background(Brush.verticalGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7))), shape)
-                        else Modifier
-                    )
-                    .clickable { onSelectHours(hours) }
-                    .width(32.dp)
-                    .height(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "${hours}h",
-                    fontSize = 12.sp,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    color = when {
-                        selected -> Color.White
-                        isDark -> Color(0xFFCBD5E1)
-                        else -> Color(0xFF334155)
+    val textColor = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155)
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Text(
+            text = windowLabel(selectedMinutes) + " \u25BE",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = textColor,
+            maxLines = 1,
+            modifier = Modifier
+                .clip(shape)
+                .background(if (isDark) Color(0x14FFFFFF) else Color(0x0F000000), shape)
+                .clickable { open = true }
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            listOf(180, 360, 720, 1080, 1440).forEach { minutes ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = (if (minutes == selectedMinutes) "\u2713  " else "     ") + windowLabel(minutes),
+                            fontSize = 14.sp
+                        )
                     },
-                    maxLines = 1
+                    onClick = {
+                        onSelectMinutes(minutes)
+                        open = false
+                    }
                 )
             }
         }
     }
 }
 
-/** Small glass chip that switches one lower panel on or off. */
+/** "15m" for short windows, "6h" for whole hours. */
+private fun windowLabel(minutes: Int): String = if (minutes < 60) "${minutes}m" else "${minutes / 60}h"
+
+/** One layer in the drop-down: a check mark when it is on. */
 @Composable
-private fun LayerChip(label: String, selected: Boolean, isDark: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(50)
-    Text(
-        text = label,
-        fontSize = 11.sp,
-        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-        color = when {
-            selected -> Color.White
-            isDark -> Color(0xFFCBD5E1)
-            else -> Color(0xFF334155)
-        },
-        maxLines = 1,
-        modifier = Modifier
-            .clip(shape)
-            .then(
-                if (selected) Modifier.background(Brush.verticalGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7))), shape)
-                else Modifier.background(if (isDark) Color(0x1FFFFFFF) else Color(0x14000000), shape)
-            )
-            .clickable { onClick() }
-            .padding(horizontal = 9.dp, vertical = 4.dp)
+private fun LayerMenuItem(label: String, selected: Boolean, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(text = (if (selected) "\u2713  " else "     ") + label, fontSize = 14.sp) },
+        onClick = onClick
     )
 }
 
@@ -190,5 +232,50 @@ private suspend fun PointerInputScope.detectPinch(onPinch: (Float) -> Unit) {
                 previous = 0f
             }
         } while (event.changes.any { it.pressed })
+    }
+}
+
+/** The charts keep one day of history: the window plus the shift back can never be longer than this. */
+private const val HISTORY_MINUTES = 24 * 60
+
+/**
+ * A slim bar along the whole chart with a rounded handle. Dragging the handle to the left moves the charts back in
+ * time, dragging it to the right brings them to now. The handle is as wide as the visible window is long.
+ */
+@Composable
+private fun TimeBar(windowMinutes: Int, panMinutes: Int, onPanToMinutes: (Int) -> Unit, isDark: Boolean) {
+    val trackColor = if (isDark) Color(0x1FFFFFFF) else Color(0x14000000)
+    val thumbColor = if (isDark) Color(0x66CBD5E1) else Color(0x66334155)
+    val total = HISTORY_MINUTES.toFloat()
+    val maxPan = (HISTORY_MINUTES - windowMinutes).coerceAtLeast(0)
+    val currentMaxPan by rememberUpdatedState(maxPan)
+    val currentPan by rememberUpdatedState(panMinutes)
+    val currentOnPan by rememberUpdatedState(onPanToMinutes)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(26.dp)
+            .padding(horizontal = 16.dp, vertical = 7.dp)
+            .clip(RoundedCornerShape(50))
+            .background(trackColor)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures { change, dx ->
+                    change.consume()
+                    // Handle to the left = further back in time.
+                    val minutesPerPx = HISTORY_MINUTES / size.width.toFloat()
+                    currentOnPan((currentPan - dx * minutesPerPx).toInt().coerceIn(0, currentMaxPan))
+                }
+            }
+    ) {
+        val thumbFrac = (windowMinutes / total).coerceIn(0.06f, 1f)
+        val startFrac = ((maxPan - panMinutes) / total).coerceIn(0f, 1f - thumbFrac)
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(thumbFrac)
+                .graphicsLayer { translationX = startFrac * (size.width / thumbFrac) }
+                .clip(RoundedCornerShape(50))
+                .background(thumbColor)
+        )
     }
 }

@@ -888,6 +888,7 @@ class OverviewViewModel(
             cobText = cobText,
             loopStatusText = loopStatusText(loopRunningMode),
             loopIsRunning = !loopRunningMode.pausesLoopExecution(),
+            loopMode = loopRunningMode,
             timeAgo = timeAgo,
             timeAgoDescription = timeAgoLong,
             glucoseTimestampMs = displayTs,
@@ -1549,6 +1550,8 @@ data class StatusCardState(
     val iobTotalU: Double,
     val cobText: String,
     val loopStatusText: String,
+    /** The running mode as an enum, for the icon on the main screen; null when not known. */
+    val loopMode: RM.Mode? = null,
     val loopIsRunning: Boolean,
     val timeAgo: String,
     val timeAgoDescription: String,

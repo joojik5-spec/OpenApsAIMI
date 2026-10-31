@@ -76,15 +76,29 @@ internal fun GlassOverviewComposeEmbedded(
     val status by overviewViewModel.statusCardState.observeAsState()
     val statusLights by statusViewModel.uiState.collectAsStateWithLifecycle()
     val commands = LocalGlassHeroCommands.current
-    var rangeHours by remember { mutableStateOf(6) }
+    // The visible window in minutes (15 min .. 24 h); every chart uses the same one.
+    var rangeMinutes by remember { mutableStateOf(360) }
+    val rangeHours = rangeMinutes / 60f
+    // How far the window is moved back from now (finger drag), in milliseconds; 0 = live.
+    var panMs by remember { mutableStateOf(0L) }
+    val panBy: (Float) -> Unit = { frac ->
+        val windowMs = rangeMinutes * 60_000L
+        panMs = (panMs + (frac * windowMs).toLong()).coerceIn(0L, ((1440 - rangeMinutes).coerceAtLeast(0)) * 60_000L)
+    }
+    val panMinutes = (panMs / 60_000L).toInt()
     // One finger position shared by the BG and IOB charts: touching either one moves both.
     var scrubProgress by remember { mutableStateOf<Float?>(null) }
     // Lower panels of the combined chart card; more than one can be on at the same time.
     var showIob by remember { mutableStateOf(true) }
     var showBalance by remember { mutableStateOf(true) }
+    var showCob by remember { mutableStateOf(false) }
     // Two-finger pinch steps through these hour ranges; the buttons set 6/12/18/24 directly.
     var pinchFactor by remember { mutableStateOf(1f) }
-    LaunchedEffect(rangeHours) { scrubProgress = null }
+    LaunchedEffect(rangeMinutes) {
+        scrubProgress = null
+        // One day of history is the limit: a longer window leaves less room to move back.
+        panMs = panMs.coerceAtMost(((1440 - rangeMinutes).coerceAtLeast(0)) * 60_000L)
+    }
     var showTools by remember { mutableStateOf(false) }
     var showPersonalize by remember { mutableStateOf(false) }
     LaunchedEffect(showTools) { if (!showTools) showPersonalize = false }
@@ -111,15 +125,16 @@ internal fun GlassOverviewComposeEmbedded(
         val treatmentData by graphViewModel.treatmentGraphFlow.collectAsStateWithLifecycle()
         val state = buildGlassUiState(status, statusLights, treatmentData)
 
+        val cobData by graphViewModel.cobGraphFlow.collectAsStateWithLifecycle()
         val bgReadings by graphViewModel.bgReadingsFlow.collectAsStateWithLifecycle()
         val iobData by graphViewModel.iobGraphFlow.collectAsStateWithLifecycle()
         val basalData by graphViewModel.basalGraphFlow.collectAsStateWithLifecycle()
         val chartConfig by graphViewModel.chartConfigFlow.collectAsStateWithLifecycle()
         val deviationsData by graphViewModel.deviationsGraphFlow.collectAsStateWithLifecycle()
         val predictions by graphViewModel.predictionsFlow.collectAsStateWithLifecycle()
-        val nowEpochMs = System.currentTimeMillis()
+        val nowEpochMs = System.currentTimeMillis() - panMs
         val chartState = remember(
-            rangeHours, bgReadings, iobData, basalData, treatmentData, chartConfig, predictions,
+            rangeMinutes, panMs, bgReadings, iobData, basalData, treatmentData, chartConfig, predictions,
             status?.pumpStatusText, status?.iobTotalU,
         ) {
             buildGlassChartState(
@@ -135,7 +150,9 @@ internal fun GlassOverviewComposeEmbedded(
                 chartConfig = chartConfig,
                 mgdlToChartY = graphViewModel::glucoseMgdlToChartY,
                 pumpStatusText = status?.pumpStatusText.orEmpty(),
-                predictions = predictions,
+                predictions = if (panMs > 0L) predictions.filter { false } else predictions,
+                // Looking back in time there is no forecast: the history uses the whole width, no empty area on the right.
+                predictionHorizonHours = if (panMs > 0L) 0 else 2,
             )
         }
 
@@ -178,23 +195,52 @@ internal fun GlassOverviewComposeEmbedded(
                 )
                 GlassCombinedChartCard(
                     isDark = isDark,
-                    selectedHours = rangeHours,
-                    onSelectHours = { rangeHours = it },
+                    selectedMinutes = rangeMinutes,
+                    onSelectMinutes = { rangeMinutes = it },
                     onOpenStats = commands::openStatsScreen,
+                    panned = panMs > 0L,
+                    onResetPan = { panMs = 0L },
+                    windowMinutes = rangeMinutes,
+                    panMinutes = panMinutes,
+                    onPanToMinutes = { panMs = it.coerceIn(0, (1440 - rangeMinutes).coerceAtLeast(0)) * 60_000L },
                     statsLabel = stringResource(R.string.stats_button),
                     showIob = showIob,
                     showBalance = showBalance,
                     onToggleIob = { showIob = !showIob },
                     onToggleBalance = { showBalance = !showBalance },
+                    showCob = showCob,
+                    onToggleCob = { showCob = !showCob },
+                    cobChart = {
+                        val cobWindowMs = (rangeHours * 3_600_000f).toLong()
+                        val cobPoints = remember(cobData, rangeMinutes, panMs) {
+                            cobData.cob.filter { it.timestamp in (nowEpochMs - cobWindowMs)..nowEpochMs }.map {
+                                IobReadingPoint(((it.timestamp - (nowEpochMs - cobWindowMs)).toFloat() / cobWindowMs.toFloat()).coerceIn(0f, 1f), it.value.toFloat())
+                            }
+                        }
+                        IobChartCard(
+                            embedded = true,
+                            scrubProgress = scrubProgress,
+                            onScrub = { scrubProgress = it },
+                            panMinutes = panMinutes,
+                            iobReadings = cobPoints,
+                            currentIob = cobPoints.lastOrNull()?.iob ?: 0f,
+                            timeRangeHours = chartState.rangeHours,
+                            historyFraction = chartState.historyFraction,
+                            isDark = isDark,
+                            title = "COB",
+                            accent = Color(0xFFF59E0B),
+                            valueFormat = "%.0f g",
+                        )
+                    },
                     onPinch = { factor ->
                         pinchFactor *= factor
-                        val steps = listOf(3, 6, 9, 12, 18, 24)
-                        val index = steps.indexOfFirst { it >= rangeHours }.let { if (it < 0) steps.lastIndex else it }
+                        val steps = listOf(15, 30, 60, 120, 180, 360, 720, 1080, 1440)
+                        val index = steps.indexOfFirst { it >= rangeMinutes }.let { if (it < 0) steps.lastIndex else it }
                         if (pinchFactor > 1.25f && index > 0) {
-                            rangeHours = steps[index - 1]
+                            rangeMinutes = steps[index - 1]
                             pinchFactor = 1f
                         } else if (pinchFactor < 0.8f && index < steps.lastIndex) {
-                            rangeHours = steps[index + 1]
+                            rangeMinutes = steps[index + 1]
                             pinchFactor = 1f
                         }
                     },
@@ -212,6 +258,7 @@ internal fun GlassOverviewComposeEmbedded(
                             embedded = true,
                             scrubProgress = scrubProgress,
                             onScrub = { scrubProgress = it },
+                            panMinutes = panMinutes,
                             readings = chartState.bgReadings,
                             treatments = chartState.treatments,
                             timeRangeHours = chartState.rangeHours,
@@ -234,6 +281,7 @@ internal fun GlassOverviewComposeEmbedded(
                             embedded = true,
                             scrubProgress = scrubProgress,
                             onScrub = { scrubProgress = it },
+                            panMinutes = panMinutes,
                             iobReadings = chartState.iobReadings,
                             predictions = chartState.iobPredictions,
                             currentIob = chartState.currentIob,
@@ -358,7 +406,7 @@ internal fun GlassOverviewComposeEmbedded(
 private const val FRESH_READING_WINDOW_MS = 15 * 60_000L
 
 internal fun buildGlassChartState(
-    rangeHours: Int,
+    rangeHours: Float,
     nowEpochMs: Long,
     bgReadings: List<BgDataPoint>,
     iobPoints: List<GraphDataPoint>,
@@ -374,7 +422,7 @@ internal fun buildGlassChartState(
     /** Insulin on board as the header prints it; null falls back to the last plotted point. */
     iobTotalU: Double? = null,
 ): GlassChartState {
-    val windowStart = nowEpochMs - rangeHours * 3_600_000L
+    val windowStart = nowEpochMs - (rangeHours * 3_600_000f).toLong()
     fun progress(timestamp: Long): Float =
         ((timestamp - windowStart).toFloat() / (nowEpochMs - windowStart).toFloat()).coerceIn(0f, 1f)
 
@@ -389,7 +437,7 @@ internal fun buildGlassChartState(
         .sortedBy { it.timestamp }
 
     fun predictionProgress(timestamp: Long): Float =
-        ((timestamp - nowEpochMs).toFloat() / (predictionWindowEnd - nowEpochMs).toFloat()).coerceIn(0f, 1f)
+        ((timestamp - nowEpochMs).toFloat() / maxOf(1L, predictionWindowEnd - nowEpochMs).toFloat()).coerceIn(0f, 1f)
 
     fun predictionType(type: BgType): PredictionType? = when (type) {
         BgType.IOB_PREDICTION   -> PredictionType.IOB
@@ -438,7 +486,7 @@ internal fun buildGlassChartState(
         emptyList()
     }
 
-    val historyFraction = rangeHours.toFloat() / (rangeHours + predictionHorizonHours).toFloat()
+    val historyFraction = rangeHours / (rangeHours + predictionHorizonHours)
 
     // BgDataPoint.value is always mg/dL; chartConfig.lowMark/highMark are already in the user's DISPLAY
     // unit (UnitDoubleKey preferences are unit-aware). Convert the readings to display-unit space via
@@ -523,7 +571,7 @@ internal fun buildGlassChartState(
         lowLine = chartConfig.lowMark.toFloat(),
         highLine = chartConfig.highMark.toFloat(),
         axisMinValue = mgdlToChartY(30.0).toFloat(),
-        axisHeadroom = mgdlToChartY(40.0).toFloat() - mgdlToChartY(0.0).toFloat(),
+        axisHeadroom = (mgdlToChartY(40.0).toFloat() - mgdlToChartY(0.0).toFloat()) * 0.3f,
         rangeHours = rangeHours,
         pumpStatusText = pumpStatusText,
     )
@@ -556,6 +604,8 @@ internal fun buildGlassUiState(
         sensorAgeStatus = lights?.sensorStatus?.ageStatus ?: StatusLevel.UNSPECIFIED,
         sensorLabel = lights?.sensorStatus?.label ?: "Sensor",
         loopStatusText = status.loopStatusText,
+        loopMode = status.loopMode,
+        reservoirText = status.reservoirText ?: "--",
         loopIsRunning = status.loopIsRunning,
         // lastSensorValueText holds the total IOB WITHOUT the "IOB: " prefix baked into status.iobText
         // (which DASHBOARD_V2/legacy views display standalone) — reused here to avoid Glass's own separate

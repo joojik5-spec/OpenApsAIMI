@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -22,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,7 +60,7 @@ import kotlin.math.ceil
 internal fun BgChartCard(
     readings: List<BgReadingPoint>,
     treatments: List<TreatmentPoint>,
-    timeRangeHours: Int,
+    timeRangeHours: Float,
     currentBgValue: Float,
     lowLine: Float,
     highLine: Float,
@@ -74,6 +76,10 @@ internal fun BgChartCard(
     /** Shared position (0..1 along the history) of the finger on this or the IOB chart; null when not touched. */
     scrubProgress: Float? = null,
     onScrub: (Float?) -> Unit = {},
+    /** Finger drag along the time axis, as a fraction of the visible history (positive: finger moved right). */
+    onPanBy: (Float) -> Unit = {},
+    /** How far the window is moved back from now, in minutes; the time marks follow it. */
+    panMinutes: Int = 0,
     /** True when the chart sits inside the combined card: no own glass container, fixed inner height. */
     embedded: Boolean = false,
 ) {
@@ -82,23 +88,17 @@ internal fun BgChartCard(
 
     // When new data arrives, reset the drag back to the current reading
     LaunchedEffect(readings) {
-        onScrub(null)
         selectedTreatment = null
     }
 
-    ChartShell(embedded = embedded, isDark = isDark, height = 190.dp) {
-        Column(modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
+    ChartShell(embedded = embedded, isDark = isDark, height = 215.dp) {
+        // The plot fills the whole card up to its edges; the finger readout floats over its top right corner.
+        Box(modifier = Modifier.fillMaxSize()) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.align(Alignment.TopEnd).padding(end = 30.dp, top = 16.dp),
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "BG",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
-                )
                 if (touchedReading != null) {
                     val pt = touchedReading!!
                     val now = LocalTime.now()
@@ -152,22 +152,24 @@ internal fun BgChartCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(0.dp))
 
+            val treatmentsNow by rememberUpdatedState(treatments)
+            val historyNow by rememberUpdatedState(historyFraction)
+            val scrubNow by rememberUpdatedState(onScrub)
             Canvas(modifier = Modifier
                 .fillMaxSize()
-                .edgeFade(bottomBandPx = 36f)
-                .pointerInput(readings, treatments, timeRangeHours) {
+                .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
                         val chartW = size.width - 65f
                         val chartH = size.height - 36f
                         val treatmentY = chartH - 8f
-                        val p = (down.position.x / (chartW * historyFraction)).coerceIn(0f, 1f)
-                        onScrub(p)
+                        val p = (down.position.x / (chartW * historyNow)).coerceIn(0f, 1f)
+                        scrubNow(p)
 
                         // Check if the touch landed near a treatment marker (X + Y)
-                        val nearTreatment = treatments.minByOrNull { abs(it.progress - p) }
+                        val nearTreatment = treatmentsNow.minByOrNull { abs(it.progress - p) }
                         if (nearTreatment != null
                             && abs(nearTreatment.progress - p) < 0.035f
                             && abs(down.position.y - treatmentY) < 50f
@@ -177,12 +179,16 @@ internal fun BgChartCard(
                             selectedTreatment = null
                         }
 
+                        // The finger moves the marker line along the chart (the time is moved with the bar under it).
                         while (true) {
                             val event = awaitPointerEvent(pass = PointerEventPass.Main)
                             if (event.changes.any { it.pressed }) {
-                                val px = (event.changes.first().position.x / (chartW * historyFraction)).coerceIn(0f, 1f)
-                                onScrub(px)
-                                event.changes.first().consume()
+                                // Two fingers are a zoom: the marker line stays where it is.
+                                if (event.changes.count { it.pressed } == 1) {
+                                    val px = (event.changes.first().position.x / (chartW * historyNow)).coerceIn(0f, 1f)
+                                    scrubNow(px)
+                                    event.changes.first().consume()
+                                }
                             } else {
                                 break
                             }
@@ -246,8 +252,9 @@ internal fun BgChartCard(
 
                 // Y-axis labels on the right (highLine and lowLine)
                 val textPaint = Paint().apply {
-                    color = if (isDark) android.graphics.Color.argb(160, 255, 255, 255) else android.graphics.Color.argb(180, 71, 85, 105)
-                    textSize = 28f
+                    color = if (isDark) android.graphics.Color.WHITE else android.graphics.Color.rgb(15, 23, 42)
+                    textSize = 30f
+                    isFakeBoldText = true
                     textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
@@ -256,7 +263,7 @@ internal fun BgChartCard(
                 drawContext.canvas.nativeCanvas.drawText(formatValue(lowLine), scaleCenterX, yLow + 8f, textPaint)
 
                 // 3. Vertical time lines (at whole hours or half hours, by real time)
-                drawTimeAxisGrid(timeRangeHours, chartW, historyFraction, chartH, if (isDark) Color(0x14FFFFFF) else Color(0x0D000000))
+                drawTimeAxisGrid(timeRangeHours, panMinutes, chartW, historyFraction, chartH, if (isDark) Color(0x14FFFFFF) else Color(0x0D000000))
 
                 // 3b. "Now" line separating history from predictions
                 val nowX = chartW * historyFraction
@@ -358,8 +365,9 @@ internal fun BgChartCard(
                 // and a number that would overlap another one is dropped, so a busy day stays readable.
                 run {
                     if (treatments.isEmpty() || readings.isEmpty()) return@run
-                    val stickAlpha = 0.30f
-                    val textAlpha = 0.65f
+                    val stickAlpha = 0.55f
+                    val dotAlpha = 0.7f
+                    val textAlpha = 0.7f
                     val merged = ArrayList<TreatmentPoint>()
                     for (t in treatments.sortedBy { it.progress }) {
                         val last = merged.lastOrNull()
@@ -372,7 +380,7 @@ internal fun BgChartCard(
                     val bolusMax = merged.filter { !it.isCarb }.maxOfOrNull { it.amount }?.coerceAtLeast(0.1f) ?: 0.1f
                     val carbMax = merged.filter { it.isCarb }.maxOfOrNull { it.amount }?.coerceAtLeast(1f) ?: 1f
                     val labelPaint = Paint().apply {
-                        textSize = 21f
+                        textSize = 24f
                         textAlign = Paint.Align.LEFT
                         isAntiAlias = true
                         isFakeBoldText = true
@@ -384,22 +392,24 @@ internal fun BgChartCard(
                         val tx = historyX(t.progress)
                         val bg = readings.minByOrNull { abs(it.progress - t.progress) }?.value ?: continue
                         val dotY = mapY(bg)
-                        val frac = if (t.isCarb) t.amount / carbMax else t.amount / bolusMax
-                        val stickLen = 14f + 36f * frac.coerceIn(0f, 1f)
-                        val up = dotY - stickLen - 26f >= 0f
-                        val tipY = if (up) dotY - stickLen else dotY + stickLen
                         val color = (if (t.isCarb) Color(0xFFF59E0B) else Color(0xFF38BDF8))
-                        drawLine(color = color.copy(alpha = stickAlpha), start = Offset(tx, dotY), end = Offset(tx, tipY), strokeWidth = 3f, cap = StrokeCap.Round)
-                        drawCircle(color = color.copy(alpha = stickAlpha + 0.1f), radius = 6f, center = Offset(tx, dotY))
                         val w = labelPaint.measureText(t.label)
-                        val th = 22f
-                        // Candidate places: right of the tip, left of the tip, above/below the tip.
-                        val candidates = listOf(
-                            Rect(tx + 6f, tipY - th / 2f, tx + 6f + w, tipY + th / 2f),
-                            Rect(tx - 6f - w, tipY - th / 2f, tx - 6f, tipY + th / 2f),
-                            Rect(tx - w / 2f, if (up) tipY - th - 2f else tipY + 2f, tx + w / 2f, if (up) tipY - 2f else tipY + th + 2f),
-                        )
-                        val spot = candidates.firstOrNull { free(it) } ?: continue
+                        val th = 26f
+                        val dotR = 9f
+                        val frac = (if (t.isCarb) t.amount / carbMax else t.amount / bolusMax).coerceIn(0f, 1f)
+                        val baseLen = 22f + 44f * frac
+                        // The dot sits on top of the stick and the number above the dot. If the number does not fit,
+                        // the stick gets longer, so neighbouring doses end at different heights.
+                        var tipY = 0f
+                        var spot: Rect? = null
+                        for (extra in listOf(0f, 24f, 48f, 72f)) {
+                            val ty = dotY - baseLen - extra
+                            val r = Rect(tx - w / 2f, ty - dotR - th - 2f, tx + w / 2f, ty - dotR - 2f)
+                            if (free(r)) { tipY = ty; spot = r; break }
+                        }
+                        if (spot == null) continue
+                        drawLine(color = color.copy(alpha = stickAlpha), start = Offset(tx, dotY), end = Offset(tx, tipY), strokeWidth = 3.5f, cap = StrokeCap.Round)
+                        drawCircle(color = color.copy(alpha = dotAlpha), radius = dotR, center = Offset(tx, tipY))
                         taken.add(spot)
                         labelPaint.color = android.graphics.Color.argb(
                             (textAlpha * 255).toInt(),
@@ -457,7 +467,7 @@ internal fun BgChartCard(
                     textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                drawTimeAxisLabels(timeRangeHours, chartW, historyFraction, h - 6f, hourPaint)
+                drawTimeAxisLabels(timeRangeHours, panMinutes, chartW, historyFraction, h - 6f, hourPaint)
 
                 // 7. Touched-point indicator (dashed line + circle)
                 touchedReading?.let { pt ->
@@ -554,15 +564,23 @@ internal fun BgChartCard(
 internal fun IobChartCard(
     iobReadings: List<IobReadingPoint>,
     currentIob: Float,
-    timeRangeHours: Int,
+    timeRangeHours: Float,
     historyFraction: Float,
     isDark: Boolean,
     predictions: List<IobReadingPoint> = emptyList(),
     /** Shared position (0..1 along the history) of the finger on this or the BG chart; null when not touched. */
     scrubProgress: Float? = null,
     onScrub: (Float?) -> Unit = {},
+    /** Finger drag along the time axis, as a fraction of the visible history (positive: finger moved right). */
+    onPanBy: (Float) -> Unit = {},
+    /** How far the window is moved back from now, in minutes; the time marks follow it. */
+    panMinutes: Int = 0,
     /** True when the chart sits inside the combined card: no own glass container, fixed inner height. */
     embedded: Boolean = false,
+    /** Caption, line colour and number format; the same chart is used for COB. */
+    title: String = "IOB",
+    accent: Color = Color(0xFF38BDF8),
+    valueFormat: String = "%.2f U",
 ) {
     val touchedIob: IobReadingPoint? = scrubProgress?.let { p -> iobReadings.minByOrNull { abs(it.progress - p) } }
 
@@ -574,7 +592,7 @@ internal fun IobChartCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "IOB",
+                    text = title,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B)
@@ -585,39 +603,44 @@ internal fun IobChartCard(
                     val hoursAgo = timeRangeHours * (1f - pt.progress)
                     val pointTime = now.minusMinutes((hoursAgo * 60).toLong())
                     Text(
-                        text = String.format(Locale.US, "%02d:%02d  %.2f U", pointTime.hour, pointTime.minute, pt.iob),
+                        text = String.format(Locale.US, "%02d:%02d  $valueFormat", pointTime.hour, pointTime.minute, pt.iob),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF38BDF8)
+                        color = accent
                     )
                 } else {
                     Text(
-                        text = String.format(Locale.US, "%.2f U", currentIob),
+                        text = String.format(Locale.US, valueFormat, currentIob),
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF38BDF8)
+                        color = accent
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(4.dp))
 
+            val historyNow by rememberUpdatedState(historyFraction)
+            val scrubNow by rememberUpdatedState(onScrub)
             Canvas(modifier = Modifier
                 .fillMaxSize()
-                .edgeFade(bottomBandPx = 28f)
-                .pointerInput(iobReadings, timeRangeHours, historyFraction) {
+                .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
                         val chartW = size.width - 65f
-                        val p = (down.position.x / (chartW * historyFraction)).coerceIn(0f, 1f)
-                        onScrub(p)
+                        val p = (down.position.x / (chartW * historyNow)).coerceIn(0f, 1f)
+                        scrubNow(p)
 
+                        // The finger moves the marker line along the chart (the time is moved with the bar under it).
                         while (true) {
                             val event = awaitPointerEvent(pass = PointerEventPass.Main)
                             if (event.changes.any { it.pressed }) {
-                                val px = (event.changes.first().position.x / (chartW * historyFraction)).coerceIn(0f, 1f)
-                                onScrub(px)
-                                event.changes.first().consume()
+                                // Two fingers are a zoom: the marker line stays where it is.
+                                if (event.changes.count { it.pressed } == 1) {
+                                    val px = (event.changes.first().position.x / (chartW * historyNow)).coerceIn(0f, 1f)
+                                    scrubNow(px)
+                                    event.changes.first().consume()
+                                }
                             } else {
                                 break
                             }
@@ -676,7 +699,7 @@ internal fun IobChartCard(
                     strokeWidth = 1f
                 )
 
-                drawTimeAxisGrid(timeRangeHours, chartW, historyFraction, chartH, if (isDark) Color(0x14FFFFFF) else Color(0x0D000000))
+                drawTimeAxisGrid(timeRangeHours, panMinutes, chartW, historyFraction, chartH, if (isDark) Color(0x14FFFFFF) else Color(0x0D000000))
 
                 val textPaint = Paint().apply {
                     color = if (isDark) android.graphics.Color.argb(160, 255, 255, 255) else android.graphics.Color.argb(180, 71, 85, 105)
@@ -727,7 +750,7 @@ internal fun IobChartCard(
                         path = areaPath,
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                Color(0xFF38BDF8).copy(alpha = if (isDark) 0.35f else 0.22f),
+                                accent.copy(alpha = if (isDark) 0.35f else 0.22f),
                                 Color.Transparent
                             ),
                             startY = 0f,
@@ -737,11 +760,11 @@ internal fun IobChartCard(
 
                     drawPath(
                         path = path,
-                        color = Color(0xFF38BDF8),
+                        color = accent,
                         style = Stroke(width = 5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                     )
 
-                    drawCircle(color = Color(0xFF38BDF8), radius = 8f, center = Offset(lastX, lastY))
+                    drawCircle(color = accent, radius = 8f, center = Offset(lastX, lastY))
                     drawCircle(color = Color.White, radius = 3.5f, center = Offset(lastX, lastY))
                 }
 
@@ -754,7 +777,7 @@ internal fun IobChartCard(
                         val prev = sorted[i - 1]
                         val curr = sorted[i]
                         drawLine(
-                            color = Color(0xFF38BDF8),
+                            color = accent,
                             start = Offset(predictionX(prev.progress), mapY(prev.iob)),
                             end = Offset(predictionX(curr.progress), mapY(curr.iob)),
                             strokeWidth = 5f,
@@ -771,7 +794,7 @@ internal fun IobChartCard(
                     textAlign = Paint.Align.CENTER
                     isAntiAlias = true
                 }
-                drawTimeAxisLabels(timeRangeHours, chartW, historyFraction, h - 6f, hourPaint)
+                drawTimeAxisLabels(timeRangeHours, panMinutes, chartW, historyFraction, h - 6f, hourPaint)
 
                 // Touched IOB point indicator (dashed line + circle)
                 touchedIob?.let { pt ->
@@ -785,7 +808,7 @@ internal fun IobChartCard(
                         strokeWidth = 2f,
                         pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
                     )
-                    drawCircle(color = Color(0xFF38BDF8), radius = 10f, center = Offset(ptX, ptY))
+                    drawCircle(color = accent, radius = 10f, center = Offset(ptX, ptY))
                     drawCircle(color = Color.White, radius = 4f, center = Offset(ptX, ptY))
                 }
             }
@@ -801,7 +824,7 @@ private fun ChartShell(embedded: Boolean, isDark: Boolean, height: Dp, content: 
     } else {
         GlassContainer(
             isDark = isDark,
-            modifier = Modifier.fillMaxWidth().height(if (height == 190.dp) 210.dp else 145.dp)
+            modifier = Modifier.fillMaxWidth().height(if (height == 215.dp) 235.dp else 145.dp)
         ) { content() }
     }
 }
@@ -856,6 +879,7 @@ private fun formatTreatmentLabel(isCarb: Boolean, amount: Float): String =
 
 /** Step between time marks for a window of [rangeMinutes]. */
 private fun axisStepMinutes(rangeMinutes: Int): Int = when {
+    rangeMinutes <= 20 -> 2
     rangeMinutes <= 30 -> 5
     rangeMinutes <= 60 -> 10
     rangeMinutes <= 180 -> 30
@@ -865,11 +889,11 @@ private fun axisStepMinutes(rangeMinutes: Int): Int = when {
 }
 
 /** Calls [block] with the position (0..1 along the history) and the clock minute for every time mark in the window. */
-private inline fun forEachTimeMark(timeRangeHours: Int, block: (progress: Float, minuteOfDay: Int) -> Unit) {
-    val rangeMin = timeRangeHours * 60
+private inline fun forEachTimeMark(timeRangeHours: Float, panMinutes: Int, block: (progress: Float, minuteOfDay: Int) -> Unit) {
+    val rangeMin = (timeRangeHours * 60f).roundToInt()
     val step = axisStepMinutes(rangeMin)
     val now = LocalTime.now()
-    val nowMin = now.hour * 60 + now.minute
+    val nowMin = ((now.hour * 60 + now.minute - panMinutes) % 1440 + 1440) % 1440
     var ago = nowMin % step
     while (ago <= rangeMin) {
         val progress = 1f - ago.toFloat() / rangeMin
@@ -878,16 +902,16 @@ private inline fun forEachTimeMark(timeRangeHours: Int, block: (progress: Float,
     }
 }
 
-private fun DrawScope.drawTimeAxisGrid(timeRangeHours: Int, chartW: Float, historyFraction: Float, chartH: Float, color: Color) {
-    forEachTimeMark(timeRangeHours) { progress, _ ->
+private fun DrawScope.drawTimeAxisGrid(timeRangeHours: Float, panMinutes: Int, chartW: Float, historyFraction: Float, chartH: Float, color: Color) {
+    forEachTimeMark(timeRangeHours, panMinutes) { progress, _ ->
         val x = progress * chartW * historyFraction
         drawLine(color = color, start = Offset(x, 0f), end = Offset(x, chartH), strokeWidth = 0.8f)
     }
 }
 
-private fun DrawScope.drawTimeAxisLabels(timeRangeHours: Int, chartW: Float, historyFraction: Float, y: Float, paint: Paint) {
-    val wholeHours = axisStepMinutes(timeRangeHours * 60) >= 60
-    forEachTimeMark(timeRangeHours) { progress, minute ->
+private fun DrawScope.drawTimeAxisLabels(timeRangeHours: Float, panMinutes: Int, chartW: Float, historyFraction: Float, y: Float, paint: Paint) {
+    val wholeHours = axisStepMinutes((timeRangeHours * 60f).roundToInt()) >= 60
+    forEachTimeMark(timeRangeHours, panMinutes) { progress, minute ->
         val x = progress * chartW * historyFraction
         // Skip a label that would be cut by the left edge.
         if (x < 20f) return@forEachTimeMark

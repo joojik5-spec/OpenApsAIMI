@@ -119,7 +119,7 @@ internal fun GlassPill(
             .clip(shape)
             .background(bgBrush)
             .border(1.dp, borderColor, shape)
-            .heightIn(min = 46.dp)
+            .heightIn(min = 38.dp)
             .padding(horizontal = 8.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -137,7 +137,8 @@ internal fun GlassPill(
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
+                // With an icon the label is not shown: the icon tells what it is, so the value has room.
+                if (leadingIcon == null) Text(
                     text = label,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Medium,

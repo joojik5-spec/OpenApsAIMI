@@ -25,7 +25,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.PointerEventPass
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.height
@@ -151,13 +155,18 @@ fun GlassNavigationBar(
                     }
                 },
                 modifier = if (tab == GlassNavigationTab.PUMP) {
+                    // Initial pass: the tab's own click handling must not hide the long press.
                     Modifier.pointerInput(pumpInfo) {
-                        detectTapGestures(onLongPress = {
-                            if (pumpInfo.isNotBlank()) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                                waitForUpOrCancellation(pass = PointerEventPass.Initial)
+                            }
+                            if (up == null && pumpInfo.isNotBlank()) {
                                 longPressHandled = true
                                 showPumpInfo = true
                             }
-                        })
+                        }
                     }
                 } else Modifier,
                 icon = {

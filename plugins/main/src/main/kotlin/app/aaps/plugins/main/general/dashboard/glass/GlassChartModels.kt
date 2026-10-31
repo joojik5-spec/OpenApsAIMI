@@ -57,6 +57,6 @@ data class GlassChartState(
     val highLine: Float = 180f,
     val axisMinValue: Float = 30f,
     val axisHeadroom: Float = 40f,
-    val rangeHours: Int = 6,
+    val rangeHours: Float = 6f,
     val pumpStatusText: String = "",
 )

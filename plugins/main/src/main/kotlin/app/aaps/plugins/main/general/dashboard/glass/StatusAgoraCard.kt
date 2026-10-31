@@ -3,7 +3,9 @@ package app.aaps.plugins.main.general.dashboard.glass
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import android.content.Intent
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +45,19 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.aaps.core.interfaces.source.CgmWarmupStatus
+import app.aaps.core.ui.compose.icons.IcLoopSuperbolus
+import app.aaps.core.ui.compose.icons.IcLoopPausedPump
+import app.aaps.core.ui.compose.icons.IcLoopPausedDst
+import app.aaps.core.ui.compose.icons.IcLoopPaused
+import app.aaps.core.ui.compose.icons.IcLoopOpen
+import app.aaps.core.ui.compose.icons.IcLoopLgs
+import app.aaps.core.ui.compose.icons.IcLoopDisconnected
+import app.aaps.core.ui.compose.icons.IcLoopDisabled
+import app.aaps.core.ui.compose.icons.IcLoopClosed
+import app.aaps.core.ui.compose.loopColor
+import app.aaps.core.ui.compose.AapsTheme
+import app.aaps.core.data.model.RM
+import androidx.compose.ui.graphics.vector.ImageVector
 import app.aaps.core.ui.compose.StatusLevel
 import app.aaps.core.ui.compose.glass.GlassColors
 import app.aaps.core.ui.compose.statusLevelToColor
@@ -59,6 +74,8 @@ private fun glassPillValue(id: GlassPillId, state: GlassUiState): String = when 
     GlassPillId.BASAL_RATE -> state.basalPercentText
     GlassPillId.LAST_BOLUS -> state.lastBolusText
     GlassPillId.LAST_CARBS -> state.lastCarbsText
+    GlassPillId.RESERVOIR_LEVEL -> state.reservoirText
+    GlassPillId.AIMI_INSIGHT -> "\u25B8"
     GlassPillId.PUMP_RESERVOIR, GlassPillId.CANNULA, GlassPillId.BATTERY,
     GlassPillId.SENSOR, GlassPillId.LOOP_STATUS, GlassPillId.ACTIVITY -> ""
 }
@@ -81,6 +98,7 @@ internal fun StatusAgoraCard(
     onOpenTools: () -> Unit,
     selectedPills: List<GlassPillId>,
 ) {
+    val context = LocalContext.current
     // Minute clock: keeps "last value N min ago" and the stale grey moving between view-model refreshes.
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -100,102 +118,158 @@ internal fun StatusAgoraCard(
         ) {
             Spacer(modifier = Modifier.height(2.dp))
 
+            // The enabled blocks fill the left and the right column in turn, half and half.
+                val sidePills = buildList<@Composable () -> Unit> {
+                    if (GlassPillId.PUMP_RESERVOIR in selectedPills) add {
+                            GlassPill(
+                                label = state.insulinLabel,
+                                value = state.insulinAge,
+                                isDark = isDark,
+                                valueColor = statusLevelToColor(state.insulinAgeStatus),
+                                modifier = Modifier.width(84.dp).clickable { onOpenPump() },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_glyco_insulin),
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            )
+                    }
+                    if (GlassPillId.CANNULA in selectedPills) add {
+                            GlassPill(
+                                label = state.cannulaLabel,
+                                value = state.cannulaAge,
+                                isDark = isDark,
+                                valueColor = statusLevelToColor(state.cannulaAgeStatus),
+                                modifier = Modifier.width(84.dp).clickable { onOpenCannula() },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_glyco_cannula),
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            )
+                    }
+                    if (GlassPillId.BATTERY in selectedPills) add {
+                            GlassPill(
+                                label = state.batteryLabel,
+                                value = state.batteryAge,
+                                isDark = isDark,
+                                valueColor = statusLevelToColor(state.batteryAgeStatus),
+                                modifier = Modifier.width(84.dp).clickable { onOpenBattery() },
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_glyco_battery),
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            )
+                    }
+                    if (GlassPillId.SENSOR in selectedPills) add {
+                            GlassPill(
+                                label = state.sensorLabel,
+                                value = state.sensorAge,
+                                isDark = isDark,
+                                valueColor = statusLevelToColor(state.sensorAgeStatus),
+                                modifier = Modifier.width(84.dp).combinedClickable(
+                                    onClick = onOpenSensorQuality,
+                                    onLongClick = onOpenSensorInsert
+                                ),
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_glyco_sensor),
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            )
+                    }
+                    if (GlassPillId.ACTIVITY in selectedPills) add {
+                            GlassPill(
+                                label = stringResource(R.string.dashboard_glass_activity_label),
+                                value = stringResource(R.string.dashboard_glass_activity_value, state.stepsText, state.hrText),
+                                isDark = isDark,
+                                modifier = Modifier.width(84.dp),
+                                leadingIcon = {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_glyco_settings),
+                                        contentDescription = null,
+                                        tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            )
+                    }
+                    add {
+                        GlassPill(
+                            label = stringResource(R.string.dashboard_glass_tools_label),
+                            value = "",
+                            isDark = isDark,
+                            modifier = Modifier.width(84.dp).clickable { onOpenTools() },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_glyco_settings),
+                                    contentDescription = null,
+                                    tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+                val leftCount = (sidePills.size + 1) / 2
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // LEFT: pump status
+                // LEFT
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.Start,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    if (GlassPillId.PUMP_RESERVOIR in selectedPills) {
-                        GlassPill(
-                            label = state.insulinLabel,
-                            value = state.insulinAge,
-                            isDark = isDark,
-                            valueColor = statusLevelToColor(state.insulinAgeStatus),
-                            modifier = Modifier.width(100.dp).clickable { onOpenPump() },
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_glyco_insulin),
-                                    contentDescription = null,
-                                    tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        )
-                    }
-                    if (GlassPillId.CANNULA in selectedPills) {
-                        GlassPill(
-                            label = state.cannulaLabel,
-                            value = state.cannulaAge,
-                            isDark = isDark,
-                            valueColor = statusLevelToColor(state.cannulaAgeStatus),
-                            modifier = Modifier.width(100.dp).clickable { onOpenCannula() },
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_glyco_cannula),
-                                    contentDescription = null,
-                                    tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        )
-                    }
-                    if (GlassPillId.BATTERY in selectedPills) {
-                        GlassPill(
-                            label = state.batteryLabel,
-                            value = state.batteryAge,
-                            isDark = isDark,
-                            valueColor = statusLevelToColor(state.batteryAgeStatus),
-                            modifier = Modifier.width(100.dp).clickable { onOpenBattery() },
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_glyco_battery),
-                                    contentDescription = null,
-                                    tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        )
-                    }
-                    GlassPill(
-                        label = stringResource(R.string.dashboard_glass_tools_label),
-                        value = "",
-                        isDark = isDark,
-                        modifier = Modifier.width(100.dp).clickable { onOpenTools() },
-                        leadingIcon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_glyco_settings),
-                                contentDescription = null,
-                                tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-                    )
-                }
+                ) { sidePills.take(leftCount).forEach { it() } }
 
                 // CENTER: big glucose value (the daily numbers are in the dashboard row below)
                 Box(
                     modifier = Modifier.weight(1.3f),
                     contentAlignment = Alignment.Center
                 ) {
+                    // A value with four characters (10.2) is smaller, so it always fits between the side blocks.
+                    val glucoseFontSize = if (state.currentBg.length >= 4) GLUCOSE_FONT_SIZE_LONG else GLUCOSE_FONT_SIZE
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Top
                     ) {
+                        // The running mode: a small, half transparent icon above the glucose (tap: loop screen, hold: mode list).
+                        state.loopMode?.let { mode ->
+                            Icon(
+                                imageVector = loopModeIcon(mode),
+                                contentDescription = state.loopStatusText,
+                                tint = mode.loopColor(AapsTheme.generalColors).copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .combinedClickable(onClick = onOpenLoopDashboard, onLongClick = onOpenLoop)
+                            )
+                        }
                         // An old value stays visible, greyed and struck through, like the classic overview.
                         Text(
                             text = state.currentBg,
-                            fontSize = GLUCOSE_FONT_SIZE,
+                            fontSize = glucoseFontSize,
                             fontWeight = FontWeight.ExtraBold,
                             color = if (glucoseStale) neutralColor else Color(if (state.glucoseDigitsColor != 0) state.glucoseDigitsColor else state.glucoseColor),
                             textDecoration = if (glucoseStale) TextDecoration.LineThrough else null,
                             letterSpacing = (-2).sp,
-                            lineHeight = GLUCOSE_FONT_SIZE,
+                            lineHeight = glucoseFontSize,
                             maxLines = 1,
                             softWrap = false,
                             modifier = Modifier.clickable { onOpenLoop() }
@@ -238,102 +312,12 @@ internal fun StatusAgoraCard(
                     }
                 }
 
-                // RIGHT: CGM & loop
+                // RIGHT
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    if (GlassPillId.SENSOR in selectedPills) {
-                        GlassPill(
-                            label = state.sensorLabel,
-                            value = state.sensorAge,
-                            isDark = isDark,
-                            valueColor = statusLevelToColor(state.sensorAgeStatus),
-                            modifier = Modifier.width(100.dp).combinedClickable(
-                                onClick = onOpenSensorQuality,
-                                onLongClick = onOpenSensorInsert
-                            ),
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_glyco_sensor),
-                                    contentDescription = null,
-                                    tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        )
-                    }
-                    if (GlassPillId.LOOP_STATUS in selectedPills) {
-                        GlassPill(
-                            label = stringResource(R.string.dashboard_glass_loop_label),
-                            value = state.loopStatusText,
-                            isDark = isDark,
-                            modifier = Modifier.width(100.dp).combinedClickable(
-                                onClick = onOpenLoopDashboard,
-                                onLongClick = onOpenLoop
-                            ),
-                            leadingIcon = {
-                                if (state.loopIsRunning) {
-                                    val infiniteTransition = rememberInfiniteTransition()
-                                    val pulseAlpha by infiniteTransition.animateFloat(
-                                        initialValue = 0f,
-                                        targetValue = 0.8f,
-                                        animationSpec = infiniteRepeatable(
-                                            animation = tween(1000, easing = LinearEasing),
-                                            repeatMode = RepeatMode.Reverse
-                                        )
-                                    )
-                                    // pulseAlpha is read in the draw phase only: reading it in composition
-                                    // recomposed this pill on every frame and kept the render thread busy.
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .drawBehind { drawCircle(Color(0xFF22C55E), alpha = pulseAlpha) },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(5.dp)
-                                                .background(Color(0xFF10B981), CircleShape)
-                                        )
-                                    }
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF94A3B8), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(5.dp)
-                                                .background(Color(0xFF94A3B8), CircleShape)
-                                        )
-                                    }
-                                }
-                            }
-                        )
-                    }
-                    if (GlassPillId.ACTIVITY in selectedPills) {
-                        GlassPill(
-                            label = stringResource(R.string.dashboard_glass_activity_label),
-                            value = stringResource(R.string.dashboard_glass_activity_value, state.stepsText, state.hrText),
-                            isDark = isDark,
-                            modifier = Modifier.width(100.dp),
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_glyco_settings),
-                                    contentDescription = null,
-                                    tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        )
-                    }
-                }
+                ) { sidePills.drop(leftCount).forEach { it() } }
             }
 
             linkBanner?.let { banner ->
@@ -363,6 +347,18 @@ internal fun StatusAgoraCard(
                                 GlassPillId.BASAL_RATE -> onOpenBasal
                                 GlassPillId.LAST_BOLUS -> onOpenInsulin
                                 GlassPillId.LAST_CARBS -> onOpenInsulin
+                                GlassPillId.RESERVOIR_LEVEL -> onOpenPump
+                                GlassPillId.AIMI_INSIGHT -> {
+                                    {
+                                        // Same app: an explicit intent works although the activity is not exported.
+                                        context.startActivity(
+                                            Intent().setClassName(
+                                                context,
+                                                "app.aaps.plugins.aps.openAPSAIMI.advisor.assistant.AimiAssistantActivity"
+                                            )
+                                        )
+                                    }
+                                }
                                 GlassPillId.PUMP_RESERVOIR, GlassPillId.CANNULA, GlassPillId.BATTERY,
                                 GlassPillId.SENSOR, GlassPillId.LOOP_STATUS, GlassPillId.ACTIVITY -> null
                             },
@@ -426,7 +422,8 @@ private fun DashboardTile(label: String, value: String, sub: String, valueColor:
 }
 
 /** Size of the main glucose number. */
-private val GLUCOSE_FONT_SIZE = 64.sp
+private val GLUCOSE_FONT_SIZE = 76.sp
+private val GLUCOSE_FONT_SIZE_LONG = 60.sp
 
 /** "Reconnecting… · last value 14 min ago", in the attention colour of the other dashboard skins. */
 @Composable
@@ -448,4 +445,18 @@ private fun CgmLinkBannerText(banner: GlassCgmLinkStatus.Banner) {
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth()
     )
+}
+
+/** Icon of the running mode, the same set as in the mode list. */
+private fun loopModeIcon(mode: RM.Mode): ImageVector = when (mode) {
+    RM.Mode.CLOSED_LOOP       -> IcLoopClosed
+    RM.Mode.CLOSED_LOOP_LGS   -> IcLoopLgs
+    RM.Mode.OPEN_LOOP         -> IcLoopOpen
+    RM.Mode.DISABLED_LOOP     -> IcLoopDisabled
+    RM.Mode.SUPER_BOLUS       -> IcLoopSuperbolus
+    RM.Mode.DISCONNECTED_PUMP -> IcLoopDisconnected
+    RM.Mode.SUSPENDED_BY_PUMP -> IcLoopPausedPump
+    RM.Mode.SUSPENDED_BY_DST  -> IcLoopPausedDst
+    RM.Mode.SUSPENDED_BY_USER -> IcLoopPaused
+    RM.Mode.RESUME            -> IcLoopClosed
 }
