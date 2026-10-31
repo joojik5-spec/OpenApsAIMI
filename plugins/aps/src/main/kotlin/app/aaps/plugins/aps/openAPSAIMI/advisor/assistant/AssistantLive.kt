@@ -27,6 +27,8 @@ data class LiveCycle(
     val finalOwner: String?,
     val deltaMgdl5m: Double?,
     val stages: List<LiveStage>,
+    /** True when the log text of this cycle says the sport safety guard set the SMB to 0. */
+    val sportSafety: Boolean = false,
 ) {
     /** True when the post-hypo guard was active in this cycle. */
     val postHypoActive: Boolean get() = postHypoTag != null && !postHypoTag.startsWith("inactive")
@@ -122,6 +124,7 @@ object AssistantLive {
             finalOwner = trace?.optString("final_owner")?.takeIf { it.isNotEmpty() },
             deltaMgdl5m = trace?.let { if (it.has("short_avg_delta_mgdl_5m") && !it.isNull("short_avg_delta_mgdl_5m")) it.optDouble("short_avg_delta_mgdl_5m") else null },
             stages = stages,
+            sportSafety = out?.optString("narrative").orEmpty().contains("Safety sport"),
         )
     } catch (_: Exception) {
         null

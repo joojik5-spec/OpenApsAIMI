@@ -116,7 +116,8 @@ class AimiInsightActivity : TranslatedDaggerAppCompatActivity() {
     /** Shows the error on the screen, so a failure never closes the app. */
     private fun showError(e: Throwable) {
         root.removeAllViews()
-        root.addView(text("AIMI Insight", 22f, bold = true))
+        root.addView(AssistantTabs.bar(this, 1))
+        root.addView(text("AIMI Assistant: Insight", 22f, bold = true))
         root.addView(text("Не удалось разобрать журнал: ${e.javaClass.simpleName}: ${e.message}", 14f))
         root.addView(text(e.stackTrace.take(8).joinToString("\n"), 11f))
         root.addView(Button(this).apply {
@@ -190,7 +191,8 @@ class AimiInsightActivity : TranslatedDaggerAppCompatActivity() {
 
     private fun render(loading: Boolean = false) {
         root.removeAllViews()
-        root.addView(text("AIMI Insight", 22f, bold = true))
+        root.addView(AssistantTabs.bar(this, 1))
+        root.addView(text("AIMI Assistant: Insight", 22f, bold = true))
         if (loading) {
             root.addView(text("Читаю журнал решений за $hours ч… Это может занять до минуты.", 14f))
             return
@@ -217,6 +219,14 @@ class AimiInsightActivity : TranslatedDaggerAppCompatActivity() {
         AssistantInsightEngine.profileHintRu(data.nightDrift)?.let {
             root.addView(section("Профиль (только подсказка)"))
             root.addView(card().apply { addView(text(it, 14f)) })
+        }
+
+
+        root.addView(section("Подъёмы без SMB"))
+        if (data.stuck.isEmpty()) {
+            root.addView(text("За период не было затяжных подъёмов, где защита обнулила SMB.", 13f))
+        } else {
+            data.stuck.forEach { root.addView(stuckCard(it)) }
         }
 
         root.addView(section("Дашборд: что влияло на SMB"))
@@ -269,6 +279,20 @@ class AimiInsightActivity : TranslatedDaggerAppCompatActivity() {
                 setOnClickListener { reason.visibility = if (reason.visibility == View.GONE) View.VISIBLE else View.GONE }
             })
             card.addView(reason)
+        }
+        return card
+    }
+
+
+    private fun stuckCard(e: StuckRise): LinearLayout {
+        val card = card()
+        val time = java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault()).format(java.util.Date(e.startMs))
+        card.addView(text("$time, ${e.minutes} мин: ${"%.1f".format(e.startMgdl / 18.0)} → ${"%.1f".format(e.peakMgdl / 18.0)} ммоль/л", 15f, bold = true))
+        val info = AssistantStageInfo.info(if (e.sportSafety) "SAFETY_PRECAUTIONS_PKPD" else e.guard)
+        card.addView(text("SMB обнулял шаг: ${info.name}" + if (e.sportSafety) " (защита «спорт» по шагам)" else "", 13f))
+        card.addView(text("Циклов: ${e.cycles}. Система хотела подать за это время около ${"%.1f".format(e.wantedU)} условных Ед.", 13f))
+        if (e.sportSafety) {
+            card.addView(text("Это не настройка: защита «спорт» срабатывает по числу шагов и обнуляет SMB, даже если режим «Resting». Настройкой это не отключается, нужна правка кода.", 13f))
         }
         return card
     }

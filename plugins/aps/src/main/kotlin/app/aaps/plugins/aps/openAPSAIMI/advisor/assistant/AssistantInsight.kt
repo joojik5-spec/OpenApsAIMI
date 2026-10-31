@@ -53,6 +53,20 @@ data class RiseEpisode(
     val afterLow: Boolean,
 )
 
+/** A stretch of time when glucose was rising, the engine wanted insulin, and a guard took all of it away. */
+data class StuckRise(
+    val startMs: Long,
+    val minutes: Int,
+    val startMgdl: Double,
+    val peakMgdl: Double,
+    /** Name of the step that most often set the SMB to 0 in this stretch. */
+    val guard: String,
+    val cycles: Int,
+    /** Sum of the SMB sizes the engine wanted in these cycles (conditional units, not insulin given). */
+    val wantedU: Double,
+    val sportSafety: Boolean,
+)
+
 data class NightDrift(
     val samples: Int,
     val medianMgdlPerHour: Double,
@@ -63,6 +77,7 @@ data class InsightResult(
     val hours: Int,
     val stages: List<StageSummary>,
     val rises: List<RiseEpisode>,
+    val stuck: List<StuckRise>,
     val lows: List<LowEpisode>,
     val bundles: List<InsightBundle>,
     val nightDrift: NightDrift?,
@@ -89,14 +104,16 @@ object AssistantInsightEngine {
     fun analyze(cycles: List<LiveCycle>, hours: Int, current: (String, Boolean) -> Double?): InsightResult {
         val stages = summarizeStages(cycles)
         val rises = findRises(cycles)
+        val stuck = findStuck(cycles)
         val samples = cycles.filter { !it.bgMgdl.isNaN() }.map { AssistantSample(it.timeMs, it.bgMgdl, it.iobU, it.decision == "SMB_Delivery") }
         val lows = AssistantAnalyzer.lowEpisodes(samples)
         val drift = nightDrift(cycles)
         val bundles = ArrayList<InsightBundle>()
         buildLateBundle(rises, lows, current)?.let { bundles.add(it) }
+        buildStuckBundle(stuck, current)?.let { bundles.add(it) }
         buildLowBundle(lows, current)?.let { bundles.add(it) }
-        val summary = summaryText(cycles.size, hours, rises, lows, bundles, drift)
-        return InsightResult(cycles.size, hours, stages, rises, lows, bundles, drift, summary)
+        val summary = summaryText(cycles.size, hours, rises, lows, bundles, drift, stuck)
+        return InsightResult(cycles.size, hours, stages, rises, stuck, lows, bundles, drift, summary)
     }
 
     // ---- stages ----
@@ -154,6 +171,74 @@ object AssistantInsightEngine {
             blockedByPostHypo = early.count { it.postHypoActive || (it.cutByName["POST_HYPO_CAP"] ?: 0.0) > 0.0005 },
             smallCapCycles = early.count { (it.maxSmbU ?: 1.0) <= SMALL_CAP_U },
             afterLow = lowBefore,
+        )
+    }
+
+
+    // ---- long rise without SMB ----
+
+    /**
+     * Finds stretches of at least 8 minutes where glucose rose (8 mg/dL or more in 5 minutes), the engine wanted at
+     * least 0.3 U of SMB, and no SMB was given because a step set it to 0. Short gaps of 3 minutes are bridged.
+     */
+    private fun findStuck(cycles: List<LiveCycle>): List<StuckRise> {
+        val usable = cycles.filter { !it.bgMgdl.isNaN() }
+        fun wanted(c: LiveCycle) = c.stages.maxOfOrNull { it.beforeU } ?: 0.0
+        fun zeroedBy(c: LiveCycle): String? =
+            c.stages.firstOrNull { it.cutU > 0.0005 && it.afterU <= 0.001 }?.name
+        val flagged = ArrayList<Pair<LiveCycle, String>>()
+        for (i in 5 until usable.size) {
+            val c = usable[i]
+            val rising = c.bgMgdl - usable[i - 5].bgMgdl >= 8.0 && c.bgMgdl >= 100.0
+            val given = c.decision == "SMB_Delivery" && c.amountU > 0.05
+            if (!rising || given || wanted(c) < 0.3) continue
+            val guard = zeroedBy(c) ?: continue
+            flagged.add(c to guard)
+        }
+        val out = ArrayList<StuckRise>()
+        var i = 0
+        while (i < flagged.size) {
+            var j = i
+            while (j + 1 < flagged.size && flagged[j + 1].first.timeMs - flagged[j].first.timeMs <= 3 * 60_000L) j++
+            val part = flagged.subList(i, j + 1)
+            val minutes = ((part.last().first.timeMs - part.first().first.timeMs) / 60_000L).toInt() + 1
+            if (part.size >= 5 && minutes >= 8) {
+                val guard = part.groupingBy { it.second }.eachCount().maxByOrNull { it.value }!!.key
+                out.add(
+                    StuckRise(
+                        startMs = part.first().first.timeMs,
+                        minutes = minutes,
+                        startMgdl = part.first().first.bgMgdl,
+                        peakMgdl = part.maxOf { it.first.bgMgdl },
+                        guard = guard,
+                        cycles = part.size,
+                        wantedU = part.sumOf { wanted(it.first) },
+                        sportSafety = part.count { it.first.sportSafety } * 2 >= part.size,
+                    )
+                )
+            }
+            i = j + 1
+        }
+        return out
+    }
+
+    private fun buildStuckBundle(stuck: List<StuckRise>, current: (String, Boolean) -> Double?): InsightBundle? {
+        val postHypo = stuck.filter { it.guard == "POST_HYPO_CAP" }
+        if (postHypo.isEmpty()) return null
+        val curMargin = current(KEY_PH_MARGIN, false) ?: 20.0
+        val curDelta = current(KEY_PH_DELTA, false) ?: 5.0
+        val peak = postHypo.maxOf { it.peakMgdl }
+        val changes = ArrayList<InsightChange>()
+        change(current, KEY_PH_MARGIN, "Post-hypo release margin", AssistantSetting.Kind.DOUBLE, false, if (curMargin > 20.0) 20.0 else 12.0, 5.0, 60.0,
+            "Защита после гипо ${postHypo.size} раз подряд держала SMB на нуле, пока сахар рос (до ${"%.1f".format(peak / 18.0)} ммоль/л). " +
+                "Сейчас она отпускает при сахаре выше цели на ${curMargin.roundToInt()} мг/дл и росте больше ${curDelta.roundToInt()} мг/дл за 5 минут.", true)?.let { changes.add(it) }
+        change(current, KEY_PH_DELTA, "Post-hypo release delta", AssistantSetting.Kind.DOUBLE, false, if (curDelta > 5.0) 5.0 else 3.0, 1.0, 30.0,
+            "Рост за 5 минут, при котором защита отпускает. Меньше значение = защита отпускает раньше.", true)?.let { changes.add(it) }
+        if (changes.isEmpty()) return null
+        return InsightBundle(
+            "SMB не подавался при росте после гипо",
+            "Найдено ${postHypo.size} затяжных подъёмов (от ${postHypo.minOf { it.minutes }} мин), где защита после гипо обнуляла SMB. Пик ${"%.1f".format(peak / 18.0)} ммоль/л.",
+            changes,
         )
     }
 
@@ -278,7 +363,7 @@ object AssistantInsightEngine {
 
     private fun summaryText(
         cycles: Int, hours: Int, rises: List<RiseEpisode>, lows: List<LowEpisode>,
-        bundles: List<InsightBundle>, drift: NightDrift?,
+        bundles: List<InsightBundle>, drift: NightDrift?, stuck: List<StuckRise> = emptyList(),
     ): String {
         if (cycles < 60) return "Недостаточно данных: в журнале за последние $hours ч только $cycles циклов."
         val late = rises.count { (it.firstSmbMin ?: 999) > 12 }
@@ -286,6 +371,9 @@ object AssistantInsightEngine {
         sb.append("За $hours ч: $cycles циклов, подъёмов ${rises.size}, из них поздних $late, низких сахаров ${lows.size}. ")
         if (bundles.isEmpty()) sb.append("Менять настройки по этим данным нет оснований: система работает ровно.")
         else sb.append("Предлагаю ${bundles.sumOf { it.changes.size }} изменений в ${bundles.size} группах. Каждое можно отключить флажком.")
+        if (stuck.isNotEmpty()) {
+            sb.append(" Затяжных подъёмов без SMB: ${stuck.size} (смотри раздел «Подъёмы без SMB»).")
+        }
         if (drift != null && abs(drift.medianMgdlPerHour) >= 12.0) {
             sb.append(" Ночью при нулевом инсулине сахар ")
             sb.append(if (drift.medianMgdlPerHour > 0) "растёт" else "падает")

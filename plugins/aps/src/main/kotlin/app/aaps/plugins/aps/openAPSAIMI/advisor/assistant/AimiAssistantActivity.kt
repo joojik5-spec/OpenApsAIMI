@@ -95,10 +95,7 @@ class AimiAssistantActivity : TranslatedDaggerAppCompatActivity() {
     private fun render(loading: Boolean) {
         root.removeAllViews()
         root.addView(title(getString(R.string.aimi_as_title)))
-        root.addView(Button(this).apply {
-            text = "AIMI Insight: резюме, дашборд, live"
-            setOnClickListener { startActivity(Intent(this@AimiAssistantActivity, AimiInsightActivity::class.java)) }
-        })
+        root.addView(AssistantTabs.bar(this, 0))
         root.addView(trainingCard())
         root.addView(postHypoCard())
         if (loading) {
