@@ -25,8 +25,13 @@ data class LiveCycle(
     val postHypoTag: String?,
     val maxSmbU: Double?,
     val finalOwner: String?,
+    val deltaMgdl5m: Double?,
     val stages: List<LiveStage>,
-)
+) {
+    /** True when the post-hypo guard was active in this cycle. */
+    val postHypoActive: Boolean get() = postHypoTag != null && !postHypoTag.startsWith("inactive")
+    val cutByName: Map<String, Double> get() = stages.groupBy { it.name }.mapValues { e -> e.value.sumOf { it.cutU } }
+}
 
 /**
  * Reads the end of the AIMI decision log. Only the tail of the file is read (a few MB), so it is cheap to call
@@ -56,6 +61,32 @@ object AssistantLive {
             .take(count)
             .toList()
             .asReversed()
+    }
+
+    /**
+     * Reads the cycles of the last [hours] hours by streaming the file: one line at a time, so memory stays small
+     * even when a line is 40 KB. Oldest first. Never writes.
+     */
+    fun readHours(file: File, nowMs: Long, hours: Int): List<LiveCycle> {
+        if (!file.exists() || !file.canRead()) return emptyList()
+        val fromMs = nowMs - hours * 3600_000L
+        val out = ArrayList<LiveCycle>()
+        RandomAccessFile(file, "r").use { raf ->
+            // About 40 KB per cycle and one cycle per minute: start a bit before the window and skip what is older.
+            val bytesBack = (hours * 60L * 48_000L).coerceAtMost(raf.length())
+            raf.seek(raf.length() - bytesBack)
+            val reader = java.io.BufferedReader(java.io.InputStreamReader(java.nio.channels.Channels.newInputStream(raf.channel), Charsets.UTF_8), 1 shl 16)
+            var first = bytesBack < raf.length()
+            while (true) {
+                val line = reader.readLine() ?: break
+                if (first) { first = false; continue } // may be a cut line
+                if (!line.startsWith("{")) continue
+                val cycle = parse(line) ?: continue
+                if (cycle.timeMs >= fromMs) out.add(cycle)
+            }
+        }
+        out.sortBy { it.timeMs }
+        return out
     }
 
     internal fun parse(line: String): LiveCycle? = try {
@@ -89,6 +120,7 @@ object AssistantLive {
             postHypoTag = adj?.optJSONObject("post_hypo_delivery")?.optString("reason_tag")?.takeIf { it.isNotEmpty() },
             maxSmbU = trace?.let { if (it.has("max_smb_u") && !it.isNull("max_smb_u")) it.optDouble("max_smb_u") else null },
             finalOwner = trace?.optString("final_owner")?.takeIf { it.isNotEmpty() },
+            deltaMgdl5m = trace?.let { if (it.has("short_avg_delta_mgdl_5m") && !it.isNull("short_avg_delta_mgdl_5m")) it.optDouble("short_avg_delta_mgdl_5m") else null },
             stages = stages,
         )
     } catch (_: Exception) {

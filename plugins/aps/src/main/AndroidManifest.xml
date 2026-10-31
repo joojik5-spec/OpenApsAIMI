@@ -23,6 +23,10 @@
             android:label="@string/aimi_auditor_report_dialog_title" />
 
         <activity
+            android:name=".openAPSAIMI.advisor.assistant.AimiInsightActivity"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:label="AIMI Insight" />
+        <activity
             android:name=".openAPSAIMI.advisor.assistant.AimiAssistantActivity"
             android:theme="@style/AppTheme.NoActionBar"
             android:label="@string/aimi_as_title" />
